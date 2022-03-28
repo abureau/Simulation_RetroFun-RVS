@@ -260,15 +260,29 @@ compute.Var.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot)
   return(list_var_Annot)
 }
 
+Get.p<-function(Q,re.Q){
+  re.mean<-mean(re.Q)
+  re.variance<-var(re.Q)
+  re.kurtosis<-mean((re.Q-re.mean)^4)/re.variance^2-3
+  re.df<-(re.kurtosis>0)*12/re.kurtosis+(re.kurtosis<=0)*100000
+  
+  re.p<-pchisq((Q-re.mean)*sqrt(2*re.df)/sqrt(re.variance)+re.df,re.df,lower.tail=F)
+  return(re.p)
+}
+
 #' Compute the p-values associated with each functional annotation
 #'
 #'@param null.value.by.fam is a dataframe with two colums (FamID and Expected) return by compute.null function
 #'@param aggregate.geno.by.fam is the list returned by aggregate.geno.by.fam function
 #'@param Z is a p*q matrix of functional annotations 
+#'@param
+#'@param
+#'@param
+#'@param
 #'
 #'@return a vector of p-values for each Score by annotation
 
-retrofun.RVS = function(null.value.by.fam,aggregate.geno.by.fam,Z){
+retrofun.RVS = function(null.value.by.fam,aggregate.geno.by.fam,Z,adjust.low.p = F, p.threshold = 0.001, n.Boot=NULL, method.adjust = c("Bootstrap", "Lee.Adjust")){
   Score = compute.Stats.by.annot(null.value.by.fam,aggregate.geno.by.fam,Z)
   Var = unlist(compute.Var.by.annot(null.value.by.fam,aggregate.geno.by.fam,Z))
   
@@ -280,11 +294,61 @@ retrofun.RVS = function(null.value.by.fam,aggregate.geno.by.fam,Z){
   
   p = lapply(Stats, function(x) pchisq(x,1,lower.tail = F))
   p = lapply(p, function(x) x[x!=1])
-  df_p = data.frame(do.call(rbind,p))
   
-  df_p$ACAT = apply(df_p,1, ACAT)
-  df_p$Fisher = apply(df_p,1, function(x){
-    pchisq(-2*sum(log(x)),2* length(x), lower.tail = F)
+  p_tmp = unlist(p)
+  Score_tmp = Score$B
+  
+  low_p = which(p_tmp<=p.threshold)
+  
+  if(adjust.low.p==F){
+    df_p = data.frame(do.call(rbind,p))
+    
+    df_p$ACAT = apply(df_p,1, ACAT)
+    df_p$Fisher = apply(df_p,1, function(x){
+      pchisq(-2*sum(log(x)),2* length(x), lower.tail = F)
+    })
+  }
+  else if(length(low_p) ==0){
+    df_p = data.frame(do.call(rbind,p))
+    
+    df_p$ACAT = apply(df_p,1, ACAT)
+    df_p$Fisher = apply(df_p,1, function(x){
+      pchisq(-2*sum(log(x)),2* length(x), lower.tail = F)
+    })
+  }
+  
+  else{
+    if(is.null(n.Boot)) print("Please specify a number of Bootstraps")
+    
+    else{
+    
+      agg_boot = replicate(n.Boot, resample.genos.by.fam(aggregate.geno.by.fam))
+      
+      if(length(low_p)==1) {
+        Stats_boot = apply(agg_boot,2, function(x) compute.Stats.by.annot(null.value.by.fam, x, Z[,c(1,low_p)])$B[2])
+        
+        if(method.adjust=="Bootstrap") {
+          p_boot = sum(floor(Stats_boot)>=floor(Score_tmp[low_p]))/n.Boot
+          p_tmp[low_p] = p_boot}
+        else {
+          p_tmp[low_p] = Get.p(floor(Score_tmp[low_p]),floor(Stats_boot))
+        }
+      }
+      else {
+        Stats_boot = apply(agg_boot,2, function(x) compute.Stats.by.annot(null.value.by.fam, x,Z[,low_p])$B)
+        if(method.adjust=="Bootstrap") p_tmp[low_p] = sapply(1:nrow(Stats_boot), function(x) sum(floor(Stats_boot[x,]) >= floor(Score_tmp[low_p[x]]))/n.Boot)
+        else p_tmp[low_p] = sapply(1:nrow(Stats_boot), function(x) Get.p(floor(Score_tmp[low_p[x]])),floor(Stats_boot[x,]))
+      }
+    }
+    p$B[low_p] = p_tmp[low_p]
+    df_p = data.frame(do.call(rbind,p))
+    
+    #df_p[df_p==0] = 1e-4
+    
+    df_p$ACAT = apply(df_p,1, ACAT)
+    df_p$Fisher = apply(df_p,1, function(x){
+      pchisq(-2*sum(log(x)),2* length(x), lower.tail = F)
+    
   })
   # Stats[is.na(Stats)] = 0
   # p = pchisq(Stats,1, lower.tail = F)
@@ -294,21 +358,44 @@ retrofun.RVS = function(null.value.by.fam,aggregate.geno.by.fam,Z){
   # df_p[nrow(df_p)+1,"p"] = ACAT(p)
   # df_p[nrow(df_p)+1,"p"] = pchisq(-2*sum(log(df_p[1:length(p),])),2* length(p), lower.tail = F)
   # rownames(df_p) = c(paste0("Score",1:length(p)), "ACAT", "Fisher")
+  }
   return(df_p)
 }
-
 #Procedure test
 null = compute.null(forsim.N.list, forsim.pattern.prob.list)
 
 ped_files_null = list.files("Null_latest_NONS_MISS_SPLICE_concat\\", full.names=T)
-subset_ped_files_null = ped_files_null[sample(1:10000)]
+subset_ped_files_null = ped_files_null[1:1000]
 
 Z_CRHs = read.table("annotation_null.mat", header=F)
 Z_quant = cbind(1,rchisq(nrow(Z_CRHs),1))
 
+#' Function resampling genotypes by fam 
+#' @param aggregate.geno.by.fam a list return by aggregate.geno.by.fam
+#' @return a list 
+#' 
+resample.genos.by.fam = function(aggregate.geno.by.fam){
+  index_non_null = apply(aggregate.geno.by.fam$ped_agg[,-1],1,function(x) which(x>0))
+  n_non_null = apply(aggregate.geno.by.fam$ped_agg[,-1],1,function(x) length(which(x>0)))
+  
+  agg_tmp = aggregate.geno.by.fam
+  agg_tmp_ped_agg = aggregate.geno.by.fam$ped_agg[,-1]
+  for(x in 1:length(agg_tmp$ped_agg$pedigree)){
+    famid = agg_tmp$ped_agg$pedigree[x]
+    sample_geno = sample(1:length(prob_sharing_by_famid[[famid]]),n_non_null[x])#, prob = prob_sharing_by_famid[[famid]])
+    
+    agg_tmp_ped_agg[x,index_non_null[[x]]] = sample_geno
+  }
+  agg_tmp_ped_agg = data.frame("pedigree"=agg_tmp$ped_agg[,1],agg_tmp_ped_agg)
+  agg_tmp$ped_agg = agg_tmp_ped_agg
+  
+  return(agg_tmp)
+}
+
 l_CRHs = list()
 l_quant = list()
 c=1
+
 for(f in subset_ped_files_null){
   print(c)
   agg = aggregate.geno.by.fam(f, correction = "remove.homo", replace_ind_geno = T )
@@ -316,8 +403,8 @@ for(f in subset_ped_files_null){
   Z_CRHs_sub = Z_CRHs[agg$index_variants,]
   Z_quant_sub = Z_quant[agg$index_variants,]
   
-  retrofun_CRHS = retrofun.RVS(null,agg,Z_CRHs_sub)
-  retrofun_quant = retrofun.RVS(null,agg,Z_quant_sub)
+  retrofun_CRHS = retrofun.RVS(null,agg,Z_CRHs_sub, adjust.low.p = T, p.threshold = 0.001, n.Boot=1000, method.adjust="Bootstrap")
+  retrofun_quant = retrofun.RVS(null,agg,Z_quant_sub,adjust.low.p = T, p.threshold = 0.001, n.Boot=1000, method.adjust="Bootstrap")
   
   l_CRHs[[f]]=retrofun_CRHS
   l_quant[[f]]=retrofun_quant
@@ -325,3 +412,31 @@ for(f in subset_ped_files_null){
 }
 saveRDS(l_CRHs, "Burden_CRHs_10000rep.RDS")
 saveRDS(l_quant, "Burden_Quant_1_10000rep.RDS")
+
+Null_Burden_CRHs = readRDS("Burden_CRHs_10000rep.RDS")
+Null_Burden_quant = readRDS("Burden_Quant_1_10000rep.RDS")
+
+ACAT_null_CRHs = sapply(Null_Burden_CRHs, function(x) x$ACAT)
+low_ACAT_CRHs = which(ACAT_null_CRHs<=0.001)
+files_low_ACAT = ped_files_null[]
+
+Fisher_null_CRHs = sapply(Null_Burden_CRHs, function(x) x$Fisher)
+
+sum(ACAT_null_CRHs<=0.05)/10000
+sum(ACAT_null_CRHs<=0.01)/10000
+sum(ACAT_null_CRHs<=0.005)/10000
+sum(ACAT_null_CRHs<=0.001)/10000
+sum(ACAT_null_CRHs<=0.00001)/10000
+
+ACAT_null_quant = sapply(Null_Burden_quant, function(x) x$ACAT)
+
+sum(ACAT_null_quant<=0.05)/10000
+sum(ACAT_null_quant<=0.01)/10000
+sum(ACAT_null_quant<=0.005)/10000
+sum(ACAT_null_quant<=0.001)/10000
+sum(ACAT_null_quant<=0.00001)/10000
+
+Fisher_null_quant = sapply(Null_Burden_quant, function(x) x$Fisher)
+
+
+Get.p(3026.3433,rnorm(10000,0,sqrt(242.1075)))
