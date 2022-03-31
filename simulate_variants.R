@@ -1,151 +1,85 @@
-#!/usr/bin/env Rscript
-cat("The script is launching...\n")
 library(GenomicRanges, quietly=T)
 library(rtracklayer, quietly=T)
 
-#The random seed is generated randomly to add sample noise at each generation
-set.seed(sample(1:1000,1))
+        
+simulate_variants = function(sfs_file, GRange_regions, prob_causal=NULL, proportion_within_region=1, region_prefix = "Region_", seed=1234){
+        set.seed(seed)
+        if(is.null(prob_causal)) print("Please provide a proportion of causal variants")
+        
+        else{
+                variants = read.table(sfs_file, header=F, sep="\t")
+                colnames(variants) = c("chr", "pos", "ref","alt", "maf")
+                
+                MAF = do.call("rbind",strsplit(variants$maf,",", fixed=T))
+                MAF = apply(MAF,2, as.numeric)
+                
+                variants$maf = apply(MAF,1,min)
+                variants_rare = variants[variants$maf<=0.01,]
+                
+                GRange_regions = import(GRange_regions, format="bed",extraCols=c(Name="character", Annotation="numeric"))
+                GRange_variants = GRanges(seqnames=paste0("chr",variants_rare$chr), ranges=IRanges(start=variants_rare$pos,end=variants_rare$pos))
+                
+                variants_tmp = variants_rare
+                
+                overlaps_variants_regions = countOverlaps(GRange_variants, GRange_regions)
+                overlaps_variants_regions[overlaps_variants_regions>1] = 1 
+                
+                index_in_regions = which(overlaps_variants_regions==1)
+                index_out_regions = which(overlaps_variants_regions==0)
+                
+                variants_tmp[index_in_regions,"inRegions"] = TRUE
+                variants_tmp[index_out_regions,"inRegions"] = FALSE
+                
+                
+                #Causal variants are generated based on the probability
+                #In the entire regions X% of variants will be causal
+                
+                causal_variants = sample(0:1, nrow(variants_tmp), replace=T, prob=c((1-prob_causal),prob_causal))
+                n_causal_variants = length(causal_variants[causal_variants==1])
+                
+                n_causal_in_regions = floor(n_causal_variants*proportion_within_region)
+                n_causal_out_regions = floor(n_causal_variants*(1-proportion_within_region))
+                
+                if((length(n_causal_in_regions) + length(n_causal_out_regions))!=n_causal_variants) n_causal_in_regions = n_causal_in_regions +1
+                
+                index_causal_in_regions = sample(index_in_regions, n_causal_in_regions , replace=F)
+                index_causal_out_regions = sample(index_out_regions, n_causal_out_regions , replace=F)
+                
+                variants_tmp[c(index_causal_in_regions, index_causal_out_regions), paste0("Scenario_",proportion_within_region)] = 1
+                variants_tmp[,paste0("Scenario_",proportion_within_region)][is.na(variants_tmp[,paste0("Scenario_",proportion_within_region)])] = 0
+                
+                split_regions_by_annot = split(GRange_regions, GRange_regions$Annotation)
+                
+                variants_per_region = lapply(1:length(split_regions_by_annot), function(x){
+                        c = findOverlaps(GRange_variants, split_regions_by_annot[[x]])
+                        q = queryHits(c)
+                        
+                        v = variants_rare[unique(q),]
+                        v[,"Annot"] = paste0(region_prefix,x)
+                        v[,"Score"]=1
+                        v
+                })
+                
+                df_variants_per_region = do.call("rbind", variants_per_region)
+                df_variants = merge(variants_tmp, df_variants_per_region, by=c("chr", "pos", "alt","ref","maf"), all.x=T)
+                df_variants$Annot[is.na(df_variants$Annot)] = "TAD"
+                df_variants$Score = NULL
+                df_variants = df_variants[order(df_variants$Annot),]
+                
+                GRange_variants_with_annot = GRanges(seqnames = paste0("chr",df_variants$chr), ranges=IRanges(start=df_variants$pos,end=df_variants$pos))
+                matrix_annot = sapply(split_regions_by_annot, function(x){
+                        countOverlaps(GRange_variants_with_annot,x)
+                })
+                matrix_annot[matrix_annot>1] = 1
+        }
+        
+        Cat_where_only_zeros = names(which(table(df_variants$Annot,df_variants[,paste0("Scenario_",proportion_within_region)])[,2]==0))
+        df_variants = df_variants[!df_variants$Annot%in%c(Cat_where_only_zeros),]
+        df_variants = df_variants[,c(8,1,2,3,4,5,7)]
+        return(list('sfs'=df_variants, "Z" = matrix_annot))
+}
 
-args = commandArgs(trailingOnly=TRUE)
+t = simulate_variants("ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.chr1_24100000_24970000.classic.annot.NONS_MISS_SPLICE_withHeader.sfs", "CRHs_in_TAD_ch1_24100000_24970000_with_annotations.bed",
+                  prob_causal = 0.2, proportion_within_region = 0.5, region_prefix = "CRH", seed = 12350)
 
-#args[1] => sfs file for variants within TAD
-#args[2] => CRHs elements 
-#args[3] => causal probabibility 
-#args[4] => Null or Alter
-
-prob_causal = as.numeric(args[3])
-
-cat("Import variant file \n")
-#Variants within the region are considered
-#TAD: chr1-Chr1:24100000-24970000
-variants = read.table(args[1], header=TRUE, sep="\t")
-colnames(variants) = c("chr", "pos", "ref","alt", "maf")
-
-variants = variants[variants$maf<=0.01,]
-MAF = do.call("rbind",strsplit(variants$maf,",", fixed=T))
-
-MAF = apply(MAF,2, as.numeric)
-variants$maf = apply(MAF,1,min)
-
-n_variants = nrow(variants)
-
-
-cat("Import CRH file\n")
-#GRange elements in bed format with score column corresponding to CRH belonging
-GRange_CRHs = import(args[2], format="bed",extraCols=c(Name="character", Annotation="numeric"))
-GRange_variants = GRanges(seqnames=paste0("chr",variants$chr), ranges=IRanges(start=variants$pos,end=variants$pos))
-
-variants_tmp = variants
-
-overlaps_variants_CRHs = countOverlaps(GRange_variants, GRange_CRHs)
-overlaps_variants_CRHs[overlaps_variants_CRHs>1] = 1 
-
-variants_in_CRHs = findOverlaps(GRange_variants, GRange_CRHs)
-index_variants_in_CRHs = unique(queryHits(variants_in_CRHs))
-
-
-variants_tmp[index_variants_in_CRHs,"inCRHs"] = TRUE
-index_variants_out_CRHs = which(is.na(variants_tmp$inCRHs))
-
-#Causal variants are generated based on the probability
-#In the entire regions X% of variants will be causal
-causal_variants = sample(0:1, nrow(variants_tmp), replace=T, prob=c((1-prob_causal),prob_causal))
-n_causal_variants = length(causal_variants[causal_variants==1])
-
-cat("Scenario 1 \n")
-#Scenario 1 : 100%
-#All the causal variants are located within CRH elements 
-variants_tmp[sample(index_variants_in_CRHs, n_causal_variants, replace=F), "Scenario_100"] = 1
-
-cat("Scenario 2 \n")
-#Scenario 2 : 75%
-#75% of causal variants are located within CRHs the rest are outside CRH elements
-n_causal_in_CRHs = floor(n_causal_variants*0.75)
-n_causal_out_CRHs = floor(n_causal_variants*0.25)
-
-if((length(n_causal_in_CRHs) + length(n_causal_out_CRHs))!=n_causal_variants) n_causal_in_CRHs = n_causal_in_CRHs +1
-
-index_causal_in_CRHs = sample(index_variants_in_CRHs, n_causal_in_CRHs , replace=F)
-index_causal_out_CRHs = sample(index_variants_out_CRHs, n_causal_out_CRHs , replace=F)
-
-variants_tmp[c(index_causal_in_CRHs, index_causal_out_CRHs), "Scenario_75"] = 1
-
-cat("Scenario 3 \n")
-#Scenario 3 : 50%
-#Equal part of causal variants within and outside CRH elements
-n_causal_in_CRHs = floor(n_causal_variants*0.50)
-n_causal_out_CRHs = floor(n_causal_variants*0.50)
-
-if((length(n_causal_in_CRHs) + length(n_causal_out_CRHs))!=n_causal_variants) n_causal_in_CRHs = n_causal_in_CRHs + 1
-
-index_causal_in_CRHs = sample(index_variants_in_CRHs, n_causal_in_CRHs , replace=F)
-index_causal_out_CRHs = sample(index_variants_out_CRHs, n_causal_out_CRHs , replace=F)
-
-variants_tmp[c(index_causal_in_CRHs, index_causal_out_CRHs), "Scenario_50"] = 1
-
-
-variants_tmp[is.na(variants_tmp$Scenario_100), "Scenario_100"] = 0
-variants_tmp[is.na(variants_tmp$Scenario_75), "Scenario_75"] = 0
-variants_tmp[is.na(variants_tmp$Scenario_50), "Scenario_50"] = 0
-
-split_CRHs = split(GRange_CRHs, GRange_CRHs$Annotation)
-
-variants_per_CRH = lapply(1:length(split_CRHs), function(x){
-        c = findOverlaps(GRange_variants, split_CRHs[[x]])
-        q = queryHits(c)
-
-        v = variants[unique(q),]
-        v[,"Annot"] = paste0("CRH",x)
-        v[,"Score"]=1
-        v
-})
-
-df_variants_per_CRH = do.call("rbind", variants_per_CRH)
-df_variants = merge(variants_tmp, df_variants_per_CRH, by=c("chr", "pos", "alt","ref","maf"), all.x=T)
-
-df_variants$Annot[is.na(df_variants$Annot)] = "TAD"
-
-variants_scenario100 = df_variants[,c("Annot","chr","pos","ref","alt","maf","Scenario_100")]
-variants_scenario100$Scenario_100[variants_scenario100$Annot=="CRH4"] = 1 
- 
-variants_scenario75 = df_variants[,c("Annot","chr","pos","ref","alt","maf","Scenario_75")]
-variants_scenario75$Scenario_75[variants_scenario75$Annot=="CRH4"] = 1
-
-variants_scenario50 = df_variants[,c("Annot","chr","pos","ref","alt","maf","Scenario_50")]
-variants_scenario50$Scenario_50[variants_scenario50$Annot=="CRH4"] = 1
-
-write.table(variants_scenario100, paste0("rare_variants_scenario100_",prob_causal,".sfs"), quote=F, col.names=F, row.names=F)
-write.table(variants_scenario75, paste0("rare_variants_scenario75_",prob_causal,".sfs"), quote=F, col.names=F, row.names=F)
-write.table(variants_scenario50, paste0("rare_variants_scenario50_",prob_causal,".sfs"), quote=F, col.names=F, row.names=F)
-
-
-cat("Annotation matrix generation \n")
-
-GRanges_variants_scenario100 = GRanges(paste0("chr",seqnames=variants_scenario100[,2]), ranges=IRanges(start=variants_scenario100[,3], end=variants_scenario100[,3]))
-GRanges_variants_scenario75 = GRanges(paste0("chr",seqnames=variants_scenario75[,2]), ranges=IRanges(start=variants_scenario75[,3], end=variants_scenario75[,3]))
-GRanges_variants_scenario50 = GRanges(paste0("chr",seqnames=variants_scenario50[,2]), ranges=IRanges(start=variants_scenario50[,3], end=variants_scenario50[,3]))
-
-
-Gl_variants_scenarios = GRangesList(GRanges_variants_scenario100, GRanges_variants_scenario75, GRanges_variants_scenario50)
-
-#Annotation matrix 
-#binary matrix are created for each scenario
-
-split_annotation = split(GRange_CRHs, GRange_CRHs$Annotation)
-
-annotation_matrix_scenarios = lapply(Gl_variants_scenarios, function(x) {
-	sapply(split_annotation, function(y){
-		countOverlaps(x,y)
-	})
-})
-
-mat1 = annotation_matrix_scenarios[[1]]
-mat1[mat1>1] = 1
-mat2 = annotation_matrix_scenarios[[2]]
-mat2[mat2>1] = 1
-mat3 = annotation_matrix_scenarios[[3]]
-mat3[mat3>1] = 1
-
-write.table(mat1, paste0("annotation_matrix_scenario100_", prob_causal,".mat"), quote=F, col.names=F, row.names=F)
-write.table(mat2, paste0("annotation_matrix_scenario75_", prob_causal,".mat"), quote=F, col.names=F, row.names=F)
-write.table(mat3, paste0("annotation_matrix_scenario50_", prob_causal,".mat"), quote=F, col.names=F, row.names=F)
+write.table(t$sfs, "rare_variants_scenario50_0.20.sfs", col.names = F, row.names = F, quote = F)
