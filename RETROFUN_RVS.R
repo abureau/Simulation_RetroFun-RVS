@@ -81,6 +81,7 @@ aggregate.geno.by.fam = function(pedfile, correction=c("remove.homo","replace.ho
     genotypes_affected_sub = remove.duplicated.variants.by.ind(genotypes_affected_sub)
   } else {
     genotypes_affected_sub = genotypes_affected_sub
+    genotypes_affected_sub$member = rownames(genotypes_affected_sub)
   }
   
   genotypes_affected_sub = merge(genotypes_affected_sub, fam[,c("member", "pedigree")], by="member")
@@ -110,15 +111,23 @@ remove.duplicated.variants.by.ind = function(df){
   #choix aleatoire pas optimal --> a verifier 
   split_df = split(df, 1:nrow(df))
   
+  # l = lapply(split_df,function(row){
+  #   row_tmp = row[row>0]
+  #   index = sapply(unique(row_tmp), function(x){
+  #     i = which(row==x)
+  #     if(length(i) == 1) i
+  #     else sample(i,1)
+  #   })
+  #   row[index]
+  # })
+  
   l = lapply(split_df,function(row){
-    row_tmp = row[row>0]
-    index = sapply(unique(row_tmp), function(x){
-      i = which(row==x)
-      if(length(i) == 1) i
-      else sample(i,1)
-    })
-    row[index]
+    row_tmp = as.matrix(row)
+    r = row_tmp[,sample(1:ncol(row_tmp))]
+    r[which(!duplicated(r)&r>0)]
   })
+  
+  l = l[which(sapply(l, function(x) length(x)>0))]
   
   df_output = ldply(l, rbind)
   df_output$member = rownames(df)[as.numeric(df_output$.id)]
@@ -224,6 +233,7 @@ compute.Stats.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_anno
   # 
   return(list("B"=Burden_Stat_by_annot))#"D"=SKAT_Stat_by_annot))#"C"=SKAT_O_Stat_by_annot))
 }
+
 
 #' Compute the Variance for q functional annotations
 #'
@@ -501,240 +511,54 @@ sum(ACAT_null_quant_CRHs_lee<=0.001)/10000
 sum(ACAT_null_quant_CRHs_lee<=0.00001)/10000
 
 #Power Analysis
-#Test alter 20% causal: 100% in CRHs, 75% in CRHs, 50% in CRHs 
+#Test alter 10% causal: 90% in CRHs, 75% in CRHs
 
-ped_files_alter_100 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_20_100_agg", full.names=T)
-ped_files_alter_75 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_20_75_agg", full.names=T)
-ped_files_alter_50 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_20_50_agg", full.names=T)
+ped_files_alter_90 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_10_90inCRHs_agg", full.names=T)
+#ped_files_alter_75 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_20_75_agg", full.names=T)
 
-Z_test_binary_info1 = sample(0:1,266, replace = T, prob = c(0.1,0.9))
-Z_test_binary_info2 = sample(0:1,266, replace = T, prob = c(0.4,0.6))
-Z_test_binary_equi = sample(0:1,266, replace = T)
-Z_test_binary_noninfor2 = sample(0:1,266, replace = T, prob = c(0.6,0.4))
-Z_test_binary_noninfor1 = sample(0:1,266, replace = T, prob = c(0.9,0.1))
+sfs_90 = read.table("rare_variants_scenario90_0.10.sfs", header=F)
+sfs_90_tmp = sfs_90[sfs_90$V1!="CRH4",]
 
-Z_test_100 = cbind(1,Z_test_binary_info1,Z_test_binary_info2,Z_test_binary_equi,Z_test_binary_noninfor2,Z_test_binary_noninfor1)
+Z=read.table("annotation_null.mat", header=F)
 
-l_100 = list()
+Z=Z[,-c(5)]
+Z[267:508,]=c(0,0,0,0)
+Z$V1 = 1
 
-for(i in 1:100){
+write.table(Z, "Z_annotation.mat", col.names = F, row.names = F, quote=F)
+check.causal.variants = function(ped.file, sfs.file){
   
-  agg_100 = aggregate.geno.by.fam(ped_files_alter_100[i], correction = "replace.homo")
-  # agg_75 = aggregate.geno.by.fam(ped_files_alter_75[i], correction = "replace.homo")
-  # agg_50 = aggregate.geno.by.fam(ped_files_alter_50[i], correction = "replace.homo")
   
-  p_100 = retrofun.RVS(null, agg_100, Z_test_100[agg_100$index_variants,, drop=F])
-  # p_75 = retrofun.RVS(null, agg_75, matrix(Z_tmp[agg_75$index_variants,], ncol=z, nrow=length(agg_75$index_variants)))
-  # p_50 = retrofun.RVS(null, agg_50, matrix(Z_tmp[agg_50$index_variants,], ncol=z, nrow=length(agg_50$index_variants)))
-  l_100[[i]] = p_100
+  regions_to_be_considered = unique(sfs.file$V1)
+  l_regions = list()
+  
+  causal_variants_all = sum(ped.file$index_variants%in%which(sfs.file$V7==1))/length(ped.file$index_variants)
+  
+  for(r in regions_to_be_considered){
+    l_regions[[r]] = sum(ped.file$index_variants%in%which(sfs.file$V7==1&sfs.file$V1==r))/length(which(ped.file$index_variants%in%which(sfs.file$V1==r)))
+  }
+  
+  return(list("All" = causal_variants_all, "By.Region" = l_regions))
+  
 }
 
-t_100 = do.call("rbind", l_100)
-
-#Mean number of TADs: 3000
-#Independence of TADs --> Bonferroni alpha adjusted = 1.666667e-05
-#Original Burden test
-sum(t_100$Score1<=1.666667e-05)/100
-#41%
-#Integration of first informative annotation
-sum(apply(t_100[,c("Score1", "Score2")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#36%
-#Integration of second informative annotation
-sum(apply(t_100[,c("Score1", "Score2","Score3")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#29%
-#Integration of neutral annotation
-sum(apply(t_100[,c("Score1", "Score2","Score3", "Score4")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#28%
-#Integration of first uninformative annotation
-sum(apply(t_100[,c("Score1", "Score2","Score3", "Score4", "Score5")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#23%
-#Integration of second informative annotation
-sum(apply(t_100[,c("Score1", "Score2","Score3", "Score4", "Score5", "Score6")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#20%
-
-Z_test_binary_info1_2 = sample(0:1,508, replace = T, prob = c(0.1,0.9))
-Z_test_binary_info2_2 = sample(0:1,508, replace = T, prob = c(0.4,0.6))
-Z_test_binary_equi_2 = sample(0:1,508, replace = T)
-Z_test_binary_noninfor2_2 = sample(0:1,508, replace = T, prob = c(0.6,0.4))
-Z_test_binary_noninfor1_2 = sample(0:1,508, replace = T, prob = c(0.9,0.1))
-
-Z_test_100_2 = cbind(1,Z_test_binary_info1_2,Z_test_binary_info2_2,Z_test_binary_equi_2,Z_test_binary_noninfor2_2,Z_test_binary_noninfor1_2)
-
-l_75 = list()
-l_50 = list()
+l_check_causal = list()
 
 for(i in 1:100){
-  
-  #agg_100 = aggregate.geno.by.fam(ped_files_alter_100[i], correction = "replace.homo")
-  #agg_75 = aggregate.geno.by.fam(ped_files_alter_75[i], correction = "replace.homo")
-  agg_50 = aggregate.geno.by.fam(ped_files_alter_50[i], correction = "replace.homo")
-  
-  #p_100 = retrofun.RVS(null, agg_100, Z_test_100[agg_100$index_variants,, drop=F])
-  #p_75 = retrofun.RVS(null, agg_75, Z_test_100_2[agg_75$index_variants,,drop=F])
-  p_50 = retrofun.RVS(null, agg_50, Z_test_100_2[agg_50$index_variants,,drop=F])
-  
-  l_50[[i]] = p_50
+  agg_90 = aggregate.geno.by.fam(ped_files_alter_90[i], correction = "replace.homo")
+  l_check_causal[[i]] = check.causal.variants(agg_90,sfs_90_tmp)
 }
 
-t_75 = do.call("rbind", l_75)
-t_50 = do.call("rbind", l_50)
-head(t_50)
-
-#Original Burden test
-sum(t_75$Score1<=1.666667e-05)/100
-#95%
-#Integration of first informative annotation
-sum(apply(t_75[,c("Score1", "Score2")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#96%
-#Integration of second informative annotation
-sum(apply(t_75[,c("Score1", "Score2","Score3")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#95%
-#Integration of neutral annotation
-sum(apply(t_75[,c("Score1", "Score2","Score3", "Score4")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#94%
-#Integration of first uninformative annotation
-sum(apply(t_75[,c("Score1", "Score2","Score3", "Score4", "Score5")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#92%
-#Integration of second informative annotation
-sum(apply(t_75[,c("Score1", "Score2","Score3", "Score4", "Score5", "Score6")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#90%
-
-
-#Original Burden test
-sum(t_50$Score1<=1.666667e-05)/100
-#95%
-#Integration of first informative annotation
-sum(apply(t_50[,c("Score1", "Score2")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#91%
-#Integration of second informative annotation
-sum(apply(t_50[,c("Score1", "Score2","Score3")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#86%
-#Integration of neutral annotation
-sum(apply(t_50[,c("Score1", "Score2","Score3", "Score4")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#84%
-#Integration of first uninformative annotation
-sum(apply(t_50[,c("Score1", "Score2","Score3", "Score4", "Score5")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#84%
-#Integration of second informative annotation
-sum(apply(t_50[,c("Score1", "Score2","Score3", "Score4", "Score5", "Score6")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#81%
-
-library(ggplot2)
-
-Power_20_binary = data.frame("Proportion" = rep(c(1,0.75,0.5),each=6), "N_annotations" = rep(0:5,3),
-           "Power"= c(41,36,29,28,23,20,95,96,95,94,92,90,95,91,86,84,84,81))
-ggplot(Power_20_binary,aes(x=N_annotations, y=Power, colour=factor(Proportion))) + geom_point() + geom_line()+labs(color="Proportion within Regions")+xlab("# of Annotations")
-
-
-Z_continuous_pred1 = runif(266,0.4,1)
-Z_continuous_pred2 = runif(266,0.2,1)
-Z_continuous_neutral = c(runif(133,0,0.6), runif(133,0.4,1))
-Z_continuous_neutral = Z_continuous_neutral[sample(1:length(Z_continuous_neutral))]
-Z_continuous_nonpred1 = runif(266,0,0.8)
-Z_continuous_nonpred2 = runif(266,0,0.6)
-
-#Mixed continuous Annotations
-
-Z_test_100_continuous = cbind(1, Z_continuous_pred1, Z_continuous_pred2, Z_continuous_neutral, Z_continuous_nonpred1, Z_continuous_nonpred2)
-l_100_quant = list()
+saveRDS(l_check_causal, "proportion_causal_10pcausal_90pinCRHs.RData")
+l_90 = list()
 
 for(i in 1:100){
+  print(i)
+  agg_90 = aggregate.geno.by.fam(ped_files_alter_90[i], correction = "replace.homo")
+  p_90 = retrofun.RVS(null, agg_90, Z[agg_90$index_variants,, drop=F])
   
-  agg_100 = aggregate.geno.by.fam(ped_files_alter_100[i], correction = "replace.homo")
-  # agg_75 = aggregate.geno.by.fam(ped_files_alter_75[i], correction = "replace.homo")
-  # agg_50 = aggregate.geno.by.fam(ped_files_alter_50[i], correction = "replace.homo")
-  
-  p_100 = retrofun.RVS(null, agg_100, Z_test_100_continuous[agg_100$index_variants,, drop=F])
-  # p_75 = retrofun.RVS(null, agg_75, matrix(Z_tmp[agg_75$index_variants,], ncol=z, nrow=length(agg_75$index_variants)))
-  # p_50 = retrofun.RVS(null, agg_50, matrix(Z_tmp[agg_50$index_variants,], ncol=z, nrow=length(agg_50$index_variants)))
-  l_100_quant[[i]] = p_100
+  l_90[[i]] = p_90
 }
 
-t_100_quant = do.call("rbind", l_100_quant)
+saveRDS(l_90, "results_power_10pcausal_90pinCRHs.RData")
 
-#Mean number of TADs: 3000
-#Independence of TADs --> Bonferroni alpha adjusted = 1.666667e-05
-#Original Burden test
-sum(t_100_quant$Score1<=1.666667e-05)/100
-#41%
-#Integration of first informative annotation
-sum(apply(t_100_quant[,c("Score1", "Score2")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#36%
-#Integration of second informative annotation
-sum(apply(t_100_quant[,c("Score1", "Score2","Score3")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#29%
-#Integration of neutral annotation
-sum(apply(t_100_quant[,c("Score1", "Score2","Score3", "Score4")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#28%
-#Integration of first uninformative annotation
-sum(apply(t_100_quant[,c("Score1", "Score2","Score3", "Score4", "Score5")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#23%
-#Integration of second informative annotation
-sum(apply(t_100_quant[,c("Score1", "Score2","Score3", "Score4", "Score5", "Score6")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#20%
-
-l_75_quant = list()
-l_50_quant = list()
-
-Z_continuous_pred1_2 = runif(508,0.4,1)
-Z_continuous_pred2_2 = runif(508,0.2,1)
-Z_continuous_neutral_2 = c(runif(254,0,0.6), runif(254,0.4,1))
-Z_continuous_neutral_2 = Z_continuous_neutral_2[sample(1:length(Z_continuous_neutral_2))]
-Z_continuous_nonpred1_2 = runif(508,0,0.8)
-Z_continuous_nonpred2_2 = runif(508,0,0.6)
-
-Z_test_100_continuous_2 = cbind(1, Z_continuous_pred1_2, Z_continuous_pred2_2, Z_continuous_neutral_2, Z_continuous_nonpred1_2, Z_continuous_nonpred2_2)
-
-
-for(i in 1:100){
-  
-  #agg_100 = aggregate.geno.by.fam(ped_files_alter_100[i], correction = "replace.homo")
-  agg_75 = aggregate.geno.by.fam(ped_files_alter_75[i], correction = "replace.homo")
-  agg_50 = aggregate.geno.by.fam(ped_files_alter_50[i], correction = "replace.homo")
-  
-  #p_100 = retrofun.RVS(null, agg_100, Z_test_100_continuous[agg_100$index_variants,, drop=F])
-  p_75 = retrofun.RVS(null, agg_75, Z_test_100_continuous_2[agg_75$index_variants,, drop=F])
-  p_50 = retrofun.RVS(null, agg_50, Z_test_100_continuous_2[agg_50$index_variants,, drop=F])
-  l_75_quant[[i]] = p_75
-  l_50_quant[[i]] = p_50
-}
-
-t_75_quant = do.call("rbind", l_75_quant)
-t_50_quant = do.call("rbind", l_50_quant)
-
-
-sum(t_75_quant$Score1<=1.666667e-05)/100
-#97%
-#Integration of first informative annotation
-sum(apply(t_75_quant[,c("Score1", "Score2")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#97%
-#Integration of second informative annotation
-sum(apply(t_75_quant[,c("Score1", "Score2","Score3")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#96%
-#Integration of neutral annotation
-sum(apply(t_75_quant[,c("Score1", "Score2","Score3", "Score4")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#97%
-#Integration of first uninformative annotation
-sum(apply(t_75_quant[,c("Score1", "Score2","Score3", "Score4", "Score5")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#95%
-#Integration of second informative annotation
-sum(apply(t_75_quant[,c("Score1", "Score2","Score3", "Score4", "Score5", "Score6")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#93%
-
-sum(t_50_quant$Score1<=1.666667e-05)/100
-#88%
-#Integration of first informative annotation
-sum(apply(t_50_quant[,c("Score1", "Score2")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#88%
-#Integration of second informative annotation
-sum(apply(t_50_quant[,c("Score1", "Score2","Score3")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#87%
-#Integration of neutral annotation
-sum(apply(t_50_quant[,c("Score1", "Score2","Score3", "Score4")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#86%
-#Integration of first uninformative annotation
-sum(apply(t_50_quant[,c("Score1", "Score2","Score3", "Score4", "Score5")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#84%
-#Integration of second informative annotation
-sum(apply(t_50_quant[,c("Score1", "Score2","Score3", "Score4", "Score5", "Score6")], 1, function(x) ACAT(x))<=1.666667e-05)/100
-#83%

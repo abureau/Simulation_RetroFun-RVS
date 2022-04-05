@@ -79,7 +79,25 @@ simulate_variants = function(sfs_file, GRange_regions, prob_causal=NULL, proport
         return(list('sfs'=df_variants, "Z" = matrix_annot))
 }
 
-t = simulate_variants("ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.chr1_24100000_24970000.classic.annot.NONS_MISS_SPLICE_withHeader.sfs", "CRHs_in_TAD_ch1_24100000_24970000_with_annotations.bed",
-                  prob_causal = 0.2, proportion_within_region = 0.5, region_prefix = "CRH", seed = 12350)
+sfs_95 = simulate_variants("ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.chr1_24100000_24970000.classic.annot.NONS_MISS_SPLICE_withHeader.sfs", "CRHs_in_TAD_ch1_24100000_24970000_with_annotations.bed",
+                           prob_causal = 0.1, proportion_within_region = 0.95, region_prefix = "CRH", seed = 12350)
 
-write.table(t$sfs, "rare_variants_scenario50_0.20.sfs", col.names = F, row.names = F, quote = F)
+sfs_90 = simulate_variants("ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.chr1_24100000_24970000.classic.annot.NONS_MISS_SPLICE_withHeader.sfs", "CRHs_in_TAD_ch1_24100000_24970000_with_annotations.bed",
+                  prob_causal = 0.1, proportion_within_region = 0.90, region_prefix = "CRH", seed = 12350)
+
+sfs_80 = simulate_variants("ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.chr1_24100000_24970000.classic.annot.NONS_MISS_SPLICE_withHeader.sfs", "CRHs_in_TAD_ch1_24100000_24970000_with_annotations.bed",
+                           prob_causal = 0.1, proportion_within_region = 0.80, region_prefix = "CRH", seed = 12350)
+
+sfs_75 = simulate_variants("ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.chr1_24100000_24970000.classic.annot.NONS_MISS_SPLICE_withHeader.sfs", "CRHs_in_TAD_ch1_24100000_24970000_with_annotations.bed",
+                           prob_causal = 0.1, proportion_within_region = 0.75, region_prefix = "CRH", seed = 12350)
+
+table(sfs_100$sfs$Annot, sfs_100$sfs$Scenario_1)
+table(sfs_90$sfs$Annot,sfs_90$sfs$Scenario_0.9)
+table(sfs_80$sfs$Annot,sfs_80$sfs$Scenario_0.8)
+table(sfs_70$sfs$Annot,sfs_70$sfs$Scenario_0.7)
+
+write.table(sfs_90$sfs, "rare_variants_scenario90_0.10.sfs", col.names = F, row.names = F, quote = F)
+write.table(sfs_75$sfs, "rare_variants_scenario75_0.10.sfs", col.names = F, row.names = F, quote = F)
+
+colSums(sfs_90$Z)
+table(sfs_90$sfs$Annot, sfs_90$sfs$Scenario_0.9)
