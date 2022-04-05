@@ -514,7 +514,7 @@ sum(ACAT_null_quant_CRHs_lee<=0.00001)/10000
 #Test alter 10% causal: 90% in CRHs, 75% in CRHs
 
 ped_files_alter_90 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_10_90inCRHs_agg", full.names=T)
-#ped_files_alter_75 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_20_75_agg", full.names=T)
+ped_files_alter_75 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_10_90inCRHs_agg", full.names=T)
 
 sfs_90 = read.table("rare_variants_scenario90_0.10.sfs", header=F)
 sfs_90_tmp = sfs_90[sfs_90$V1!="CRH4",]
@@ -550,15 +550,44 @@ for(i in 1:100){
 }
 
 saveRDS(l_check_causal, "proportion_causal_10pcausal_90pinCRHs.RData")
+
 l_90 = list()
+l_75 = list()
 
 for(i in 1:100){
   print(i)
-  agg_90 = aggregate.geno.by.fam(ped_files_alter_90[i], correction = "replace.homo")
-  p_90 = retrofun.RVS(null, agg_90, Z[agg_90$index_variants,, drop=F])
+  agg_75 = aggregate.geno.by.fam(ped_files_alter_75[i], correction = "replace.homo")
+  p_75 = retrofun.RVS(null, agg_75, Z[agg_75$index_variants,, drop=F])
   
-  l_90[[i]] = p_90
+  l_75[[i]] = p_75
 }
 
 saveRDS(l_90, "results_power_10pcausal_90pinCRHs.RData")
+saveRDS(l_75, "results_power_10pcausal_75pinCRHs.RData")
 
+#Power 90% in CRHs
+
+power_10pcausal_90 = readRDS("results_power_10pcausal_90pinCRHs.RData")
+
+#Burden
+sum(sapply(power_10pcausal_90, function(x) x$Score1)<= 0.001)/100
+#1st Annotation 
+sum(sapply(power_10pcausal_90, function(x) ACAT(c(x$Score1, x$Score2)))<= 0.001)/100
+#2nd Annotation
+sum(sapply(power_10pcausal_90, function(x) ACAT(c(x$Score1, x$Score2, x$Score3)))<= 0.001)/100
+#3rd Annotation
+sum(sapply(power_10pcausal_90, function(x) ACAT(c(x$Score1, x$Score2, x$Score3, x$Score4)))<= 0.001)/100
+
+
+#Power 90% in CRHs
+
+power_10pcausal_75 = readRDS("results_power_10pcausal_75pinCRHs.RData")
+
+#Burden
+sum(sapply(power_10pcausal_75, function(x) x$Score1)<= 0.001)/100
+#1st Annotation 
+sum(sapply(power_10pcausal_75, function(x) ACAT(c(x$Score1, x$Score2)))<= 0.001)/100
+#2nd Annotation
+sum(sapply(power_10pcausal_75, function(x) ACAT(c(x$Score1, x$Score2, x$Score3)))<= 0.001)/100
+#3rd Annotation
+sum(sapply(power_10pcausal_75, function(x) ACAT(c(x$Score1, x$Score2, x$Score3, x$Score4)))<= 0.001)/100
