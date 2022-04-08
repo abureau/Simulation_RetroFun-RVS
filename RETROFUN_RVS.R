@@ -36,7 +36,7 @@ compute.null = function(pedigree.configurations, pedigree.probas){
 #' @param replace_ind_geno allow to remove variants on the same haplotype : A Boolean 
 #' @return A list with the ped file corrected and aggregated by family, the weight matrix and index each variants observed in families
 
-aggregate.geno.by.fam = function(pedfile, correction=c("remove.homo","replace.homo"), replace_ind_geno = T){
+aggregate.geno.by.fam = function(pedfile, correction=c("remove.homo","replace.homo"), replace_ind_geno = T, FamID=NULL){
   
   sample = read.pedfile(pedfile)
   MAF_file = col.summary(sample$genotype)$MAF
@@ -90,16 +90,17 @@ aggregate.geno.by.fam = function(pedfile, correction=c("remove.homo","replace.ho
   agg_by_fam = aggregate(.~pedigree,genotypes_affected_sub, sum)
   #Useful only in simulation studies since we added a letter for duplicated pedigrees
   #To comment when time gonna come
-  agg_by_fam$pedigree = substring(agg_by_fam$pedigree,2)
+  agg_by_fam$pedigree = ifelse(agg_by_fam$pedigree %in% FamID, agg_by_fam$pedigree,sub('^[A-Z]', '', agg_by_fam$pedigree)) #substring(agg_by_fam$pedigree,2)
   
   index_col = as.numeric(gsub("locus.", "", colnames(agg_by_fam)[-1]))
-  MAF_file_sub = MAF_file[index_col]
-  W = diag(dbeta(MAF_file_sub,1,25),length(index_col))
+  # MAF_file_sub = MAF_file[index_col]
+  # W = diag(dbeta(MAF_file_sub,1,25),length(index_col))
   
-  return(list("ped_agg" = agg_by_fam, "W" = W, "index_variants" = index_col))
+  return(list("ped_agg" = agg_by_fam, "index_variants" = index_col))
   
   
 }
+
 
 #' Remove variants with the same genotype per individual
 #' 
@@ -140,6 +141,7 @@ remove.duplicated.variants.by.ind = function(df){
 #'Function computing the theoritical variance and covariance for each family
 #' @param config.by.fam a list with configuration by family
 #' @param sharing.proba.by.fam a list with sharing probabilities by family
+#' 
 #' @return a dataframe with Famid, variance and covariance
 compute.var.by.fam = function(config.by.fam, sharing.proba.by.fam){
   
@@ -168,14 +170,17 @@ compute.var.by.fam = function(config.by.fam, sharing.proba.by.fam){
 #'
 #'@param null.value.by.fam is a dataframe with two colums (FamID and Expected) return by compute.null function
 #'@param aggregate.geno.by.fam is the list returned by aggregate.geno.by.fam function
-#'@param Z is a p*q matrix of functional annotations 
+#'@param Z_annot is a p*q matrix of functional annotations 
+#'@param W is a p*p matrix of weights
 #'
 #'@return a list with each Score by annotation
 
-compute.Stats.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot){
+compute.Stats.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot,W){
   
   ped_agg = aggregate.geno.by.fam$ped_agg
-  W = aggregate.geno.by.fam$W
+  
+  W_sub = W[aggregate.geno.by.fam$index_variants,aggregate.geno.by.fam$index_variants]
+  
   Expected = null.value.by.fam[,c("FamID", "Expected")]
   
   split_G_agg_by_fam = split(ped_agg, 1:nrow(ped_agg))
@@ -210,14 +215,14 @@ compute.Stats.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_anno
     else Z_annot = Z_annot
   }
   
+  Z_annot_sub = Z_annot[aggregate.geno.by.fam$index_variants,]
   
-  labels_Scores = sapply(1:ncol(Z_annot), function(x) paste0("Score", x))
+  labels_Scores = sapply(1:ncol(Z_annot_sub), function(x) paste0("Score", x))
   list_Scores_Annot = list()
   
-  #A simplifier
-  Burden_Stat_by_annot = sapply(1:ncol(Z_annot), function(z){
-    diag_Z = diag(Z_annot[,z], length(Z_annot[,z]))
-    Wz = W%*%diag_Z
+  Burden_Stat_by_annot = sapply(1:ncol(Z_annot_sub), function(z){
+    diag_Z = diag(Z_annot_sub[,z], length(Z_annot_sub[,z]))
+    Wz = W_sub%*%diag_Z
     S_by_var%*%Wz%*%Vec_unit%*%t(Vec_unit)%*%Wz%*%t(S_by_var)
   })
   
@@ -234,16 +239,18 @@ compute.Stats.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_anno
   return(list("B"=Burden_Stat_by_annot))#"D"=SKAT_Stat_by_annot))#"C"=SKAT_O_Stat_by_annot))
 }
 
-
 #' Compute the Variance for q functional annotations
 #'
 #'@param null.value.by.fam is a dataframe with two colums (FamID and Expected) return by compute.null function
 #'@param aggregate.geno.by.fam is the list returned by aggregate.geno.by.fam function
-#'@param Z is a p*q matrix of functional annotations 
+#'@param Z_annot is a p*q matrix of functional annotations 
+#'@param W is a p*p matrix of weights
 #'
 #'@return a list with each variance by annotation
-compute.Var.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot){
+compute.Var.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot,W){
   list_var_Annot = list()
+  
+  W_sub = W[aggregate.geno.by.fam$index_variants,aggregate.geno.by.fam$index_variants]
   
   #Replace NA by zero in Z
   Z_annot[is.na(Z_annot)] = 0
@@ -261,9 +268,11 @@ compute.Var.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot)
     else Z_annot = Z_annot
   }
   
-  for(col_A in 1:ncol(Z_annot)){
+  Z_annot_sub = Z_annot[aggregate.geno.by.fam$index_variants,]
+  
+  for(col_A in 1:ncol(Z_annot_sub)){
     Score_label = paste0("Score", col_A)
-    Wz_tmp = diag(Z_annot[,col_A],nrow(Z_annot))%*%aggregate.geno.by.fam$W
+    Wz_tmp = diag(Z_annot_sub[,col_A],nrow(Z_annot_sub))%*%W_sub#aggregate.geno.by.fam$W
     cov_annot = c()
     
     for(r in 1:nrow(aggregate.geno.by.fam$ped_agg)){
@@ -297,7 +306,14 @@ compute.Var.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot)
   return(list_var_Annot)
 }
 
-Get.p<-function(Q,re.Q){
+#' Method to adjust p-values in high tails of the distribution, considering kurtosis
+#' 
+#' @param Q a score statistic 
+#' @param re.Q a vector the resampled score statistic 
+#' 
+#' @return a kurtosis adjusted p-values based on Lee et al., 2012
+#' 
+Get.p = function(Q,re.Q){
   re.mean<-mean(re.Q)
   re.variance<-var(re.Q)
   re.kurtosis<-mean((re.Q-re.mean)^4)/re.variance^2-3
@@ -312,23 +328,24 @@ Get.p<-function(Q,re.Q){
 #'@param null.value.by.fam is a dataframe with two colums (FamID and Expected) return by compute.null function
 #'@param aggregate.geno.by.fam is the list returned by aggregate.geno.by.fam function
 #'@param Z is a p*q matrix of functional annotations 
-#'@param
-#'@param
-#'@param
-#'@param
+#'@param W is a p*p matrix of weights 
+#'@param adjust.low.p a boolean to adjust extreme low p-values based on resampling method
+#'@param p.threshold a numeric is the threshold where p-values below will be adjusted
+#'@param n.Boot a numeric is the number of permutations
+#'@param method.adjust a string for the permutation method used
 #'
-#'@return a vector of p-values for each Score by annotation
+#'@return a data.frame of p-values for each Score by annotation and ACAT and Fisher combined p-values
 
-retrofun.RVS = function(null.value.by.fam,aggregate.geno.by.fam,Z,adjust.low.p = F, p.threshold = 0.001, n.Boot=NULL, method.adjust = c("Bootstrap", "Lee.Adjust")){
-  Score = compute.Stats.by.annot(null.value.by.fam,aggregate.geno.by.fam,Z)
-  Var = unlist(compute.Var.by.annot(null.value.by.fam,aggregate.geno.by.fam,Z))
+retrofun.RVS = function(null.value.by.fam,aggregate.geno.by.fam,Z,W,adjust.low.p = F, p.threshold = 0.001, n.Boot=NULL, method.adjust = c("Bootstrap", "Lee.Adjust")){
+  Score = unlist(compute.Stats.by.annot(null.value.by.fam,aggregate.geno.by.fam,Z,W))
+  Var = unlist(compute.Var.by.annot(null.value.by.fam,aggregate.geno.by.fam,Z,W))
   
   Stats = lapply(Score, function(x){
-    S = x / Var
+    S = (x / Var)
     S[is.na(S)] = 0
     S
   })
-  
+
   p = lapply(Stats, function(x) pchisq(x,1,lower.tail = F))
   p_tmp = unlist(p)
   low_p = which(p_tmp<=p.threshold)
@@ -395,19 +412,12 @@ retrofun.RVS = function(null.value.by.fam,aggregate.geno.by.fam,Z,adjust.low.p =
   }
   return(df_p)
 }
-#Procedure test
+
 null = compute.null(forsim.N.list, forsim.pattern.prob.list)
-
-ped_files_null = list.files("Null_latest_NONS_MISS_SPLICE_concat\\", full.names=T)
-subset_ped_files_null = ped_files_null[1:1000]
-
-Z_CRHs_null = read.table("annotation_null.mat", header=F)
-Z_quant_null = cbind(1,rchisq(nrow(Z_CRHs_null),1))
-Z_quant_CRHs_null = cbind(Z_CRHs_null, Z_quant_null[,-1])
 
 #' Function resampling genotypes by fam 
 #' @param aggregate.geno.by.fam a list return by aggregate.geno.by.fam
-#' @return a list 
+#' @return resample data.frame  
 #' 
 resample.genos.by.fam = function(aggregate.geno.by.fam){
   index_non_null = apply(aggregate.geno.by.fam$ped_agg[,-1],1,function(x) which(x>0))
@@ -511,83 +521,139 @@ sum(ACAT_null_quant_CRHs_lee<=0.001)/10000
 sum(ACAT_null_quant_CRHs_lee<=0.00001)/10000
 
 #Power Analysis
-#Test alter 10% causal: 90% in CRHs, 75% in CRHs
+#Test alter 6% causal
+ped_files_alter_6causal = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\Scenario_100_6perccausal_oneCRH", full.names=T)
+sfs_100_06 = read.table("rare_variants_scenario100_0.06.sfs", header=F)
 
-ped_files_alter_90 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_10_90inCRHs_agg", full.names=T)
-ped_files_alter_75 = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\CRHs_alter_10_90inCRHs_agg", full.names=T)
+table(sfs_100_06$V1,sfs_100_06$V7)
+#CRH/Causal   0   1
+#1045         128  30
+#1257         64   1
+#1335         1   1
+#988          40   1
+#Out          243   1
 
-sfs_90 = read.table("rare_variants_scenario90_0.10.sfs", header=F)
-sfs_90_tmp = sfs_90[sfs_90$V1!="CRH4",]
+#Code to generate Z as binary matrix
+u = unique(sfs_100_06$V1)
+Z = matrix(0, nrow=nrow(sfs_100_06),ncol=length(u)-1)
+Z_tmp = sapply(1:ncol(Z),function(x){
+  Z_col = Z[,x,drop=F]
+  w = which(sfs_100_06$V1==u[x])
+  Z_col[w,] = 1
+  Z_col
+})
+Z = cbind(1,Z_tmp)
 
-Z=read.table("annotation_null.mat", header=F)
+W = diag(dbeta(sfs_100_06$V6,1,20),510)
 
-Z=Z[,-c(5)]
-Z[267:508,]=c(0,0,0,0)
-Z$V1 = 1
+ped_files_alter_2causal = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\Scenario_100_2perccausal_oneCRH", full.names=T)
+ped_files_alter_4causal = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\Scenario_100_4perccausal_oneCRH", full.names=T)
 
-write.table(Z, "Z_annotation.mat", col.names = F, row.names = F, quote=F)
-check.causal.variants = function(ped.file, sfs.file){
-  
-  
-  regions_to_be_considered = unique(sfs.file$V1)
-  l_regions = list()
-  
-  causal_variants_all = sum(ped.file$index_variants%in%which(sfs.file$V7==1))/length(ped.file$index_variants)
-  
-  for(r in regions_to_be_considered){
-    l_regions[[r]] = sum(ped.file$index_variants%in%which(sfs.file$V7==1&sfs.file$V1==r))/length(which(ped.file$index_variants%in%which(sfs.file$V1==r)))
-  }
-  
-  return(list("All" = causal_variants_all, "By.Region" = l_regions))
-  
-}
-
-l_check_causal = list()
-
-for(i in 1:100){
-  agg_90 = aggregate.geno.by.fam(ped_files_alter_90[i], correction = "replace.homo")
-  l_check_causal[[i]] = check.causal.variants(agg_90,sfs_90_tmp)
-}
-
-saveRDS(l_check_causal, "proportion_causal_10pcausal_90pinCRHs.RData")
-
-l_90 = list()
-l_75 = list()
+list_06_100 = list()
+list_4_100 = list()
+list_2_100 = list()
 
 for(i in 1:100){
   print(i)
-  agg_75 = aggregate.geno.by.fam(ped_files_alter_75[i], correction = "replace.homo")
-  p_75 = retrofun.RVS(null, agg_75, Z[agg_75$index_variants,, drop=F])
+  agg_test_06 = aggregate.geno.by.fam(ped_files_alter_6causal[i], correction = "replace.homo", FamID = null$FamID)
+  agg_test_04 = aggregate.geno.by.fam(ped_files_alter_4causal[i], correction = "replace.homo", FamID = null$FamID)
+  agg_test_02 = aggregate.geno.by.fam(ped_files_alter_2causal[i], correction = "replace.homo", FamID = null$FamID)
   
-  l_75[[i]] = p_75
+  list_06_100[[i]] = retrofun.RVS(null,agg_test_06,Z,W)
+  list_4_100[[i]] = retrofun.RVS(null,agg_test_04,Z,W)
+  list_2_100[[i]] = retrofun.RVS(null,agg_test_02,Z,W)
 }
 
-saveRDS(l_90, "results_power_10pcausal_90pinCRHs.RData")
-saveRDS(l_75, "results_power_10pcausal_75pinCRHs.RData")
-
-#Power 90% in CRHs
-
-power_10pcausal_90 = readRDS("results_power_10pcausal_90pinCRHs.RData")
-
-#Burden
-sum(sapply(power_10pcausal_90, function(x) x$Score1)<= 0.001)/100
-#1st Annotation 
-sum(sapply(power_10pcausal_90, function(x) ACAT(c(x$Score1, x$Score2)))<= 0.001)/100
-#2nd Annotation
-sum(sapply(power_10pcausal_90, function(x) ACAT(c(x$Score1, x$Score2, x$Score3)))<= 0.001)/100
-#3rd Annotation
-sum(sapply(power_10pcausal_90, function(x) ACAT(c(x$Score1, x$Score2, x$Score3, x$Score4)))<= 0.001)/100
+sum(sapply(list_06_100,function(x) x$Score1)<=0.05)/100
+sum(sapply(list_06_100,function(x) ACAT(c(x$Score1,x$Score2)))<=0.05)/100
+sum(sapply(list_06_100,function(x) ACAT(c(x$Score1,x$Score2,x$Score3)))<=0.05)/100
+sum(sapply(list_06_100,function(x) x$ACAT<=0.05))/100
 
 
-#Power 90% in CRHs
+sum(sapply(list_4_100,function(x) x$Score1)<=0.05)/100
+sum(sapply(list_4_100,function(x) ACAT(c(x$Score1,x$Score2)))<=0.05)/100
+sum(sapply(list_4_100,function(x) ACAT(c(x$Score1,x$Score2,x$Score3)))<=0.05)/100
+sum(sapply(list_4_100,function(x) x$ACAT<=0.05))/100
 
-power_10pcausal_75 = readRDS("results_power_10pcausal_75pinCRHs.RData")
 
-#Burden
-sum(sapply(power_10pcausal_75, function(x) x$Score1)<= 0.001)/100
-#1st Annotation 
-sum(sapply(power_10pcausal_75, function(x) ACAT(c(x$Score1, x$Score2)))<= 0.001)/100
-#2nd Annotation
-sum(sapply(power_10pcausal_75, function(x) ACAT(c(x$Score1, x$Score2, x$Score3)))<= 0.001)/100
-#3rd Annotation
-sum(sapply(power_10pcausal_75, function(x) ACAT(c(x$Score1, x$Score2, x$Score3, x$Score4)))<= 0.001)/100
+sum(sapply(list_2_100,function(x) x$Score1)<=0.05)/100
+sum(sapply(list_2_100,function(x) ACAT(c(x$Score1,x$Score2)))<=0.05)/100
+sum(sapply(list_2_100,function(x) ACAT(c(x$Score1,x$Score2,x$Score3)))<=0.05)/100
+sum(sapply(list_2_100,function(x) x$ACAT<=0.05))/100
+
+library(plyr)
+library(ggplot2)
+df_6_100 = ldply(list_06_100,"rbind")
+df_6_100$Prop = 0.06
+df_4_100 = ldply(list_4_100,"rbind")
+df_4_100$Prop = 0.04
+df_2_100 = ldply(list_2_100,"rbind")
+df_2_100$Prop = 0.02
+
+df_all_100 = rbind(df_6_100,df_4_100,df_2_100)
+
+#Power by Annotation
+aggregate(Score1~Prop,df_all_100, function(x) sum(x<0.05, na.rm = T)/100)
+aggregate(Score2~Prop,df_all_100, function(x) sum(x<0.05,na.rm = T)/100)
+aggregate(Score3~Prop,df_all_100, function(x) sum(x<0.05,na.rm = T)/100)
+aggregate(Score4~Prop,df_all_100, function(x) sum(x<0.05,na.rm = T)/100)
+aggregate(Score5~Prop,df_all_100, function(x) sum(x<0.05,na.rm = T)/100)
+
+df_all_100$ACAT1_2 = apply(df_all_100[,c("Score1", "Score2")],1,ACAT)
+df_all_100$ACAT1_2_3 = apply(df_all_100[,c("Score1", "Score2","Score3")],1,function(r){
+  if(any(is.na(r))){
+    ACAT(r[-which(is.na(r))])
+  } else {
+    ACAT(r)
+  }
+})
+df_all_100$ACAT1_2_3_4 = apply(df_all_100[,c("Score1", "Score2","Score3", "Score4")],1,function(r){
+  if(any(is.na(r))){
+    ACAT(r[-which(is.na(r))])
+  } else {
+    ACAT(r)
+  }
+})
+
+Init_power = aggregate(Score1~Prop,df_all_100, function(x) sum(x<0.05, na.rm = T)/100)
+Init_power$N_Annot = 0
+colnames(Init_power) = c("Prop", "Power", "N_Annot")
+Informative_Annot_power = aggregate(ACAT1_2~Prop,df_all_100, function(x) sum(x<0.05,na.rm = T)/100)
+Informative_Annot_power$N_Annot = 1
+Uninformative_Annot1_power = aggregate(ACAT1_2_3~Prop,df_all_100, function(x) sum(x<0.05,na.rm = T)/100)
+Uninformative_Annot1_power$N_Annot = 2 
+Uninformative_Annot2_power = aggregate(ACAT1_2_3_4~Prop,df_all_100, function(x) sum(x<0.05,na.rm = T)/100)
+Uninformative_Annot2_power$N_Annot = 3
+Uninformative_Annot3_power = aggregate(ACAT~Prop,df_all_100, function(x) sum(x<0.05,na.rm = T)/100)
+Uninformative_Annot3_power$N_Annot = 4
+
+colnames(Informative_Annot_power) = c("Prop", "Power", "N_Annot")
+colnames(Uninformative_Annot1_power) = c("Prop", "Power", "N_Annot")
+colnames(Uninformative_Annot2_power) = c("Prop", "Power", "N_Annot")
+colnames(Uninformative_Annot3_power) = c("Prop", "Power", "N_Annot")
+power_add_Annot = rbind(Init_power,Informative_Annot_power,Uninformative_Annot1_power,Uninformative_Annot2_power, Uninformative_Annot3_power)
+
+ggplot(power_add_Annot, aes(x=N_Annot, y=Power, fill=factor(Prop)))+geom_bar(stat = "identity", position = "dodge", colour="black")+xlab("# Functional Annotations")+labs(fill="% Causal")
+
+#Compare variances for each functional annotations at different proportion of causal variants
+list_var_6 = list()
+list_var_4 = list()
+list_var_2 = list()
+
+for(i in 1:100){
+  agg_test_02_test = aggregate.geno.by.fam(ped_files_alter_2causal[i], correction = "replace.homo", FamID = null$FamID)
+  agg_test_04_test = aggregate.geno.by.fam(ped_files_alter_4causal[i], correction = "replace.homo", FamID = null$FamID)
+  agg_test_06_test = aggregate.geno.by.fam(ped_files_alter_6causal[i], correction = "replace.homo", FamID = null$FamID)
+  
+  
+  list_var_6[[i]] = unlist(compute.Var.by.annot(null,agg_test_06_test,Z, W))
+  list_var_4[[i]] = unlist(compute.Var.by.annot(null,agg_test_04_test,Z, W))
+  list_var_2[[i]] = unlist(compute.Var.by.annot(null,agg_test_02_test,Z, W))
+}
+
+
+sum(sapply(1:100, function(x) {
+  list_var_6[[x]][2]>list_var_4[[x]][2]}))
+
+
+
