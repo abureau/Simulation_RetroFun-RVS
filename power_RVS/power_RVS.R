@@ -11,29 +11,39 @@ correction="remove.homo"
 # Largeur de fenêtre
 lf = 5
 
-ped_files_alter_90 = list.files("../sample_alter_10pcausal_90pinCRHs", full.names=T)
-
-# Test avec un seul réplicat
-pedfile = ped_files_alter_90[1]
-
 #ped_files_alter_75 = list.files("../CRHs_alter_20_75_agg", full.names=T)
+#ped_files_alter_90 = list.files("../sample_alter_10pcausal_90pinCRHs", full.names=T)
+ped_files_alter_100 = list.files("../Scenario_100_2perccausal_oneCRH", full.names=T)
+# Test avec un seul réplicat
 #pedfile = ped_files_alter_75[1]
+#pedfile = ped_files_alter_90[1]
+#pedfile = ped_files_alter_100[1]
+
+# Boucle sur les réplicats
+p.list = pall.list = jf.list = pall_lf.list = list()
+
+for (r in 1:length(ped_files_alter_100))
+{
+  cat("r=",r,"\n")
+  pedfile = ped_files_alter_100[r]
 
   sample = read.pedfile(pedfile)
-  MAF_file = col.summary(sample$genotype)$MAF
   fam = sample$fam
   affected = fam[fam$affected==2,"member"]
 
   # Créer pattern.prob.list et N.list
   fam.vec = unique(fam$pedigree)
-  fam.type = substring(fam.vec,2)
+  # Les familles à partir de 41 ont une lettre ajoutée comme préfixe à leur nom
+  fam.type = c(fam.vec[1:40],substring(fam.vec[41:length(fam.vec)],2))
   ech.pattern.prob.list = forsim.pattern.prob.list[fam.type]
   ech.N.list = forsim.N.list[fam.type]
   names(ech.pattern.prob.list) = fam.vec
   names(ech.N.list) = fam.vec
   
   # Création d'un objet pedigreeList, puis élagage des familles et sauvegarde dans une liste d'objets pedigree
-  ech.ped = pedigree(id=fam$member,dadid=fam$father,momid=fam$mother,sex=fam$sex,affected=fam$affected,famid=fam$pedigree)
+  affected01 = ifelse(is.na(fam$affected),0,fam$affected-1)
+  table(affected01)
+  ech.ped = pedigree(id=fam$member,dadid=fam$father,momid=fam$mother,sex=fam$sex,affected=affected01,famid=fam$pedigree)
   ech.list=list()
   for (i in 1:length(fam.vec))
   {
@@ -58,6 +68,7 @@ pedfile = ped_files_alter_90[1]
 
   if(length(genotypes_affected)==0){
     print("No variants left after cleaning, please provide an other pedfile")
+    break;
   }
   
   if(correction=="remove.homo"){
@@ -70,14 +81,15 @@ pedfile = ped_files_alter_90[1]
     genotypes_affected[genotypes_affected>=1] = 1 
     genotypes_affected_sub = genotypes_affected
   } else{
-    print("Please choose a valid option for correction parameter")
+    stop("Please choose a valid option for correction parameter")
   }
-  
+  # Remove duplicated variants
+  # tmp = remove.duplicated.variants.by.ind(genotypes_affected_sub)
   genotypes_affected_sub_unique = t(unique(t(genotypes_affected_sub)))
   # Statistiques des génotypes des variants retenus
-  dim(genotypes_affected_sub_unique)
-  apply(genotypes_affected_sub_unique,2,sum)
-  genotypes_affected_RVgene = cbind(fam[fam$affected==2,],genotypes_affected_sub_unique)
+  #dim(genotypes_affected_sub_unique)
+  #apply(genotypes_affected_sub_unique,2,sum)
+  genotypes_affected_RVgene = cbind(fam[affected01==1,],genotypes_affected_sub_unique)
 
   # Tests
   # test = RVgene(genotypes_affected_RVgene,ech.list,sites=1:2,pattern.prob.list = ech.pattern.prob.list,N.list = ech.N.list,type="count")
@@ -123,5 +135,9 @@ pedfile = ped_files_alter_90[1]
     tf = RVgene(genotypes_affected_RVgene,ech.list,sites=((j-1)*lf+1):min(j*lf,ncol(genotypes_affected_RVgene)-6),pattern.prob.list = ech.pattern.prob.list,N.list = ech.N.list,type="count",partial.sharing = F)
     pall_lf.vec[j] = tf$pall
   }
-  
-min(pall_lf.vec[1:22])*length(pall_lf.vec)  
+p.list[[r]] = p.vec
+pall.list[[r]] = pall.vec
+pall_lf.list[[r]] = pall_lf.vec
+jf.list[[r]] = jf
+#min(pall_lf.vec)*length(pall_lf.vec)  
+}
