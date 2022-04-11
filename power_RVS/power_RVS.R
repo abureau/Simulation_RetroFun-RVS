@@ -32,7 +32,7 @@ for (r in 1:length(ped_files_alter_100))
   affected = fam[fam$affected==2,"member"]
 
   # Créer pattern.prob.list et N.list
-  fam.vec = unique(fam$pedigree)
+  fam.vec = as.character(unique(fam$pedigree))
   # Les familles à partir de 41 ont une lettre ajoutée comme préfixe à leur nom
   fam.type = c(fam.vec[1:40],substring(fam.vec[41:length(fam.vec)],2))
   ech.pattern.prob.list = forsim.pattern.prob.list[fam.type]
