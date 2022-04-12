@@ -32,7 +32,8 @@ sharing.variants.by.fam = function(pedfile, sfs.file, correction="remove.homo", 
     #Replace homozygous variants by heterogygous ones
     genotypes_affected[genotypes_affected>=1] = 1 
     genotypes_affected_sub = genotypes_affected
-  } else{
+  }  else if(correction=="None"){
+    genotypes_affected_sub = genotypes_affected } else{
     stop("Please choose a valid option for correction parameter")
   }
   # Remove duplicated variants
@@ -87,6 +88,10 @@ df.sharing.causal.variants = data.frame("Mean_Number_of_causal_variants" = c(sha
 
 ggplot(df.sharing.causal.variants, aes(x=Type,y=Mean_Number_of_causal_variants, fill=factor(Proportion_Causal)))+geom_boxplot()+xlab("Type")+ylab("Mean Number of Variants by Family")+labs(fill="Proportion Causal")
 
+sharing.100.02.CRH.none = sapply(1:100,function(X) sharing.variants.by.fam(ped_files_alter_2causal[X], sfs_100_02, correction = "None", sites.of.interest = "1045",causal = F))
+sharing.100.04.CRH.none = sapply(1:100,function(X) sharing.variants.by.fam(ped_files_alter_4causal[X], sfs_100_04, correction = "None", sites.of.interest = "1045",causal = F))
+sharing.100.06.CRH.none = sapply(1:100,function(X) sharing.variants.by.fam(ped_files_alter_6causal[X], sfs_100_06, correction = "None", sites.of.interest = "1045",causal = F))
+
 aggregate_100.02.CRH = lapply(1:100, function(X) aggregate.geno.by.fam(ped_files_alter_2causal[X],correction = "replace.homo", FamID = null$FamID))
 aggregate_100.04.CRH = lapply(1:100, function(X) aggregate.geno.by.fam(ped_files_alter_4causal[X],correction = "replace.homo",FamID = null$FamID))
 aggregate_100.06.CRH = lapply(1:100, function(X) aggregate.geno.by.fam(ped_files_alter_6causal[X],correction = "replace.homo",FamID = null$FamID))
@@ -126,6 +131,7 @@ ggplot(df.variance.stats.sharing, aes(x=Sharing,y=Stats/Variance))+geom_point(ae
   xlab("Mean Number of Shared Variants")+ylab("Original Burden Test")+labs(color="Proportion Causal")
 
 
+
 pedfiles_null = list.files("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\Scenario_Null_agg", full.names = T)
 sfs_null = read.table("C:\\Users\\loicm\\Documents\\recherche\\Vraisemblance_retrospective\\Simulation\\data\\rare_variants_null.sfs", header=F)
 
@@ -151,35 +157,3 @@ for(i in 1:1000){
   #list_agg_null[[i]] = agg_null
   list_null[[i]] = retrofun.RVS(null,list_agg_null[[i]], Z,W)
 }
-
-retrofun.RVS(null, list_agg_null[[98]], Z,W)
-compute.Var.by.annot(null, list_agg_null[[98]], Z,W)
-
-hist(sapply(list_null, function(x)x$ACAT))
-
-gg_qqplot <- function(ps, ci = 0.95) {
-  n  <- length(ps)
-  df <- data.frame(
-    observed = -log10(sort(ps)),
-    expected = -log10(ppoints(n)),
-    clower   = -log10(qbeta(p = (1 - ci) / 2, shape1 = 1:n, shape2 = n:1)),
-    cupper   = -log10(qbeta(p = (1 + ci) / 2, shape1 = 1:n, shape2 = n:1))
-  )
-  log10Pe <- expression(paste("Expected -log"[10], plain(P)))
-  log10Po <- expression(paste("Observed -log"[10], plain(P)))
-  ggplot(df) +
-    geom_ribbon(
-      mapping = aes(x = expected, ymin = clower, ymax = cupper),
-      alpha = 0.1
-    ) +
-    geom_point(aes(expected, observed), shape = 1, size = 3) +
-    geom_abline(intercept = 0, slope = 1, alpha = 0.5) +
-    # geom_line(aes(expected, cupper), linetype = 2, size = 0.5) +
-    # geom_line(aes(expected, clower), linetype = 2, size = 0.5) +
-    xlab(log10Pe) +
-    ylab(log10Po)
-}
-
-t = ldply(list_null, "rbind")
-
-gg_qqplot(t$Score1[!is.na(t$Score1)])
