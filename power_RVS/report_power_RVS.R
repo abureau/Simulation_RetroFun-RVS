@@ -11,9 +11,9 @@ ACAT.fct = function(vec)
 }
 # 2% of causal variants
 
-load("alter100.RData")
-load("alter75.RData")
-load("alter50.RData")
+load("alter100.02.RData")
+load("alter75.02.RData")
+load("alter50.02.RData")
 
 # Close to 100% causal variants in CRH 1
 minp100.2pc.vec = sapply(p100.02.list,minp_Bonf)
