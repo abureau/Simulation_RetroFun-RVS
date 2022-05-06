@@ -37,109 +37,51 @@ compute.null = function(pedigree.configurations, pedigree.probas){
 #' @param replace_ind_geno allow to remove variants on the same haplotype : A Boolean 
 #' @return A list with the ped file corrected and aggregated by family, the weight matrix and index each variants observed in families
 
-aggregate.geno.by.fam = function(pedfile, correction=c("remove.homo","replace.homo"), replace_ind_geno = T, FamID=NULL){
+aggregate.geno.by.fam = function(pedfile, FamID, correction=NULL){
+  rep1 = read.pedfile(pedfile)
   
-  sample = read.pedfile(pedfile)
-  #MAF_file = col.summary(sample$genotype)$MAF
-  fam = sample$fam
+  fam = rep1$fam
   fam$affected[is.na(fam$affected)] = 1
   
   affected = fam[fam$affected==2,c("member","pedigree")]
   
-  genotypes_all = data.frame(as(sample$genotypes, "numeric"))
+  genotypes_all = data.frame(as(rep1$genotypes, "numeric"))
   
   #Keep only affected individuals
   genotypes_affected = genotypes_all[rownames(genotypes_all)%in%affected$member,]
   
-  #Remove columns with only reference alleles
-  non_zero_cols = which(colSums(genotypes_affected)>0)
-  genotypes_affected = select(genotypes_affected, all_of(non_zero_cols))
+  genotypes_affected_sub_unique = t(unique(t(genotypes_affected)))
+  genotypes_affected_sub_unique[is.na(genotypes_affected_sub_unique)] = 0
   
-  #Keep variants present in less than half of individuals
-  kept_cols =  which(colSums(genotypes_affected>0) <= nrow(genotypes_affected)/2)
-  genotypes_affected = select(genotypes_affected, all_of(kept_cols))
-  
-  if(length(genotypes_affected)==0){
-    print("No variants left after cleaning, please provide an other pedfile")
+  if(correction=="replace.homo"){
+    genotypes_affected_sub_unique[genotypes_affected_sub_unique==2] = 1
+  }
+  else if(correction=="remove.homo"){
+    hetero_cols = which(colSums(genotypes_affected_sub_unique==2)==0)
+    genotypes_affected_sub_unique = genotypes_affected_sub_unique[,hetero_cols]
   }
   
-  if(correction=="remove.homo"){
-    #Keep only heterozyguous variants
-    hetero_variants = which(colSums(genotypes_affected==2) == 0)
-    genotypes_affected_sub = select(genotypes_affected, all_of(hetero_variants))
-    
-  } else if(correction=="replace.homo"){
-    #Replace homozygous variants by heterogygous ones
-    genotypes_affected[genotypes_affected>=1] = 1 
-    genotypes_affected_sub = genotypes_affected
-  } else{
-    print("Please choose a valid option for correction parameter")
-  }
+  aberr_cols = which(colSums(genotypes_affected_sub_unique)>nrow(genotypes_affected_sub_unique)/2)
+  if(length(aberr_cols)>0)  genotypes_affected_sub_unique = genotypes_affected_sub_unique[,-aberr_cols]
   
-  #Remove individuals with only zero genotypes
-  non_null_ind = which(rowSums(genotypes_affected_sub>0)>0)
-  genotypes_affected_sub = slice(genotypes_affected_sub, non_null_ind)
+  index_col = as.numeric(gsub("locus.", "", colnames(genotypes_affected_sub_unique)))
   
-  if(replace_ind_geno){
-    genotypes_affected_sub = remove.duplicated.variants.by.ind(genotypes_affected_sub)
-  } else {
-    genotypes_affected_sub = genotypes_affected_sub
-    genotypes_affected_sub$member = rownames(genotypes_affected_sub)
-  }
+  genotypes_affected_sub_unique = data.frame(genotypes_affected_sub_unique[,colnames(genotypes_affected_sub_unique)[order(index_col)]])
   
-  genotypes_affected_sub = merge(genotypes_affected_sub, fam[,c("member", "pedigree")], by="member")
-  genotypes_affected_sub$member = NULL
+  genotypes_affected_sub_unique$member = rownames(genotypes_affected_sub_unique)
   
-  agg_by_fam = aggregate(.~pedigree,genotypes_affected_sub, sum)
-  #Useful only in simulation studies since we added a letter for duplicated pedigrees
-  #To comment when time gonna come
-  agg_by_fam$pedigree = ifelse(agg_by_fam$pedigree %in% FamID, agg_by_fam$pedigree,sub('^[A-Z]', '', agg_by_fam$pedigree)) #substring(agg_by_fam$pedigree,2)
+  genotypes_affected_sub_unique = merge(genotypes_affected_sub_unique,affected, by="member")
+  genotypes_affected_sub_unique$member=NULL
   
-  index_col = as.numeric(gsub("locus.", "", colnames(agg_by_fam)[-1]))
-  # MAF_file_sub = MAF_file[index_col]
-  # W = diag(dbeta(MAF_file_sub,1,25),length(index_col))
+  agg_by_fam = aggregate(.~pedigree,genotypes_affected_sub_unique,sum)
   
-  return(list("ped_agg" = agg_by_fam, "index_variants" = index_col))
+  if(length(which(rowSums(agg_by_fam[,-1])==0))>0) agg_by_fam = agg_by_fam[-which(rowSums(agg_by_fam[,-1])==0),]
   
+  agg_by_fam$pedigree = ifelse(agg_by_fam$pedigree %in% FamID, agg_by_fam$pedigree,sub('^[A-Z]', '', agg_by_fam$pedigree))
   
+  return(list("ped_agg" = agg_by_fam, "index_variants" = sort(index_col)))
 }
 
-
-#' Remove variants with the same genotype per individual
-#' 
-#' @param df is dataframe where each row is an individual
-#' @return a dataframe with only kept variants
-remove.duplicated.variants.by.ind = function(df){
-  #A verifier sous l'alternative
-  #lorsque selection d'annotation fonctionnelle
-  #choix aleatoire pas optimal --> a verifier 
-  split_df = split(df, 1:nrow(df))
-  
-  # l = lapply(split_df,function(row){
-  #   row_tmp = row[row>0]
-  #   index = sapply(unique(row_tmp), function(x){
-  #     i = which(row==x)
-  #     if(length(i) == 1) i
-  #     else sample(i,1)
-  #   })
-  #   row[index]
-  # })
-  
-  l = lapply(split_df,function(row){
-    row_tmp = as.matrix(row)
-    r = row_tmp[,sample(1:ncol(row_tmp))]
-    r[which(!duplicated(r)&r>0)]
-  })
-  
-  l = l[which(sapply(l, function(x) length(x)>0))]
-  
-  df_output = ldply(l, rbind)
-  df_output$member = rownames(df)[as.numeric(df_output$.id)]
-  df_output$.id = NULL
-  df_output[is.na(df_output)] = 0
-  
-  return(df_output)
-}
 
 #'Function computing the theoritical variance and covariance for each family
 #' @param config.by.fam a list with configuration by family
@@ -161,7 +103,7 @@ compute.var.by.fam = function(config.by.fam, sharing.proba.by.fam){
     sum(outer(config.by.fam[[famid]],config.by.fam[[famid]],"*")*joint) - moy^2
   })
   
-  covar=pmin(covar , var)
+  covar=pmin(covar, var)
   
   df_var = data.frame("FamID"=names(config.by.fam), "Var"=var)
   df_covar = data.frame("FamID"=names(config.by.fam), "CoVar"=covar)
@@ -178,16 +120,32 @@ compute.var.by.fam = function(config.by.fam, sharing.proba.by.fam){
 #'
 #'@return a list with each Score by annotation
 
-compute.Stats.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot,W){
+compute.Burden.by.Annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot,W){
+  
+  #Replace NA by zero in Z
+  Z_annot[is.na(Z_annot)] = 0
+  
+  convert.neg.to.pos = function(col){
+    if(min(col)<0) col = col - min(col)
+    else col
+  }
+  
+  if(ncol(Z_annot) > 1){
+    #Make negative scores positive
+    Z_annot = apply(Z_annot, 2, convert.neg.to.pos)
+  } else{
+    if(min(Z_annot)< 0) Z_annot = Z_annot-min(Z_annot)
+    else Z_annot = Z_annot
+  }
   
   ped_agg = aggregate.geno.by.fam$ped_agg
-
+  
   W_sub = W[aggregate.geno.by.fam$index_variants,aggregate.geno.by.fam$index_variants]
   
   Expected = null.value.by.fam[,c("FamID", "Expected")]
   
   split_G_agg_by_fam = split(ped_agg, 1:nrow(ped_agg))
-
+  
   diff_obs_expected_by_fam = lapply(split_G_agg_by_fam, function(x) {
     pedigree = x$pedigree
     
@@ -199,38 +157,14 @@ compute.Stats.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_anno
   diff_obs_expected_all_fam = do.call("rbind", diff_obs_expected_by_fam)
   diff_obs_expected_all_fam[is.na(diff_obs_expected_all_fam)] = 0
   
- 
-  S_by_var = matrix(colSums(diff_obs_expected_all_fam), nrow=1)
-  Vec_unit = matrix(rep(1,ncol(S_by_var)),nrow=ncol(S_by_var))
+  S_by_var = colSums(diff_obs_expected_all_fam)
+  Wz_sub = W_sub%*%Z_annot[aggregate.geno.by.fam$index_variants,]
   
-  #Replace NA by zero in Z
-  Z_annot[is.na(Z_annot)] = 0
+  S_Wz = S_by_var%*%Wz_sub
+  Burden_by_annot = S_Wz^2
   
-  convert.neg.to.pos = function(col){
-    if(min(col)<0) col = col - min(col)
-    else col
-  }
+  return(return(list("B"=Burden_by_annot)))
   
-  if(ncol(Z_annot) > 1){
-    #Make negative scores positive
-    Z_annot = apply(Z_annot, 2, convert.neg.to.pos)
-  } else{
-    if(min(Z_annot)< 0) Z_annot = Z_annot-min(Z_annot)
-    else Z_annot = Z_annot
-  }
-  
-  Z_annot_sub = Z_annot[aggregate.geno.by.fam$index_variants,]
-  
-  # labels_Scores = sapply(1:ncol(Z_annot_sub), function(x) paste0("Score", x))
-  # list_Scores_Annot = list()
-  
-  Burden_Stat_by_annot = colSums(sapply(1:ncol(Z_annot_sub), function(z){
-    diag_Z = diag(Z_annot_sub[,z], length(Z_annot_sub[,z]))
-    Wz = W_sub%*%diag_Z
-    (S_by_var%*%Wz)#%*%Vec_unit%*%t(Vec_unit)%*%Wz%*%t(S_by_var)
-  }))^2
-  
-  return(list("B"=Burden_Stat_by_annot))
 }
 
 #' Compute the Variance for q functional annotations
@@ -241,10 +175,8 @@ compute.Stats.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_anno
 #'@param W is a p*p matrix of weights
 #'
 #'@return a list with each variance by annotation
-compute.Var.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot,W){
+compute.Var.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot,W, independence=F){
   list_var_Annot = list()
-  
-  W_sub = W[aggregate.geno.by.fam$index_variants,aggregate.geno.by.fam$index_variants]
   
   #Replace NA by zero in Z
   Z_annot[is.na(Z_annot)] = 0
@@ -262,11 +194,13 @@ compute.Var.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot,
     else Z_annot = Z_annot
   }
   
-  Z_annot_sub = Z_annot[aggregate.geno.by.fam$index_variants,]
+  Wz = W%*%Z_annot
+  Wz_sub = Wz[aggregate.geno.by.fam$index_variants,]
   
-  for(col_A in 1:ncol(Z_annot_sub)){
+  for(col_A in 1:ncol(Wz_sub)){
     Score_label = paste0("Score", col_A)
-    Wz_tmp = diag(Z_annot_sub[,col_A],nrow(Z_annot_sub))%*%W_sub
+    Wz_sub_annot = Wz_sub[,col_A]
+    
     cov_annot = c()
     
     for(r in 1:nrow(aggregate.geno.by.fam$ped_agg)){
@@ -276,27 +210,29 @@ compute.Var.by.annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot,
       diff_x = unique(x[x>0])
       
       i = which(x>0)
-      
-      if(length(i) == 1) d_Wz = Wz_tmp[i,i]
-      else d_Wz = diag(Wz_tmp[i,i])
+      Wz_sub_annot_fam = Wz_sub_annot[i]
       
       cov_tmp = NA
-      var_tmp = sum(d_Wz^2 * null.value.by.fam[null.value.by.fam$FamID==ped,"Var"])
+      var_tmp = sum(Wz_sub_annot_fam^2 * null.value.by.fam[null.value.by.fam$FamID==ped,"Var"])
       
-      if(length(i)==1){
-        cov_tmp = var_tmp } else{
-          cw = combn(d_Wz,2)
-          if(length(diff_x) ==1){
-            cov_tmp = var_tmp + 2*sum(sapply(1:ncol(cw), function(c) prod(cw[,c]))) * null.value.by.fam[null.value.by.fam$FamID==ped,"Var"]
-          } else{
-            cov_tmp = var_tmp + 2*sum(sapply(1:ncol(cw),function(c) prod(cw[,c]))) * null.value.by.fam[null.value.by.fam$FamID==ped,"CoVar"]
+      if(independence ==T){
+        cov_annot = c(cov_annot,var_tmp)
+      }
+      else{
+        if(length(i)==1){
+          cov_tmp = var_tmp } else{
+            cw = combn(Wz_sub_annot_fam,2)
+            if(length(diff_x) ==1){
+              cov_tmp = var_tmp + 2*sum(sapply(1:ncol(cw), function(c) prod(cw[,c]))) * null.value.by.fam[null.value.by.fam$FamID==ped,"Var"]
+            } else{
+              cov_tmp = var_tmp + 2*sum(sapply(1:ncol(cw),function(c) prod(cw[,c]))) * null.value.by.fam[null.value.by.fam$FamID==ped,"CoVar"]
+            }
           }
-        }
-      
-      cov_annot = c(cov_annot,cov_tmp)
+        
+        cov_annot = c(cov_annot, cov_tmp)
+      }
     }
     list_var_Annot[[Score_label]] = sum(cov_annot)
-    
   }
   return(list_var_Annot)
 }
@@ -331,81 +267,21 @@ Get.p = function(Q,re.Q){
 #'
 #'@return a data.frame of p-values for each Score by annotation and ACAT and Fisher combined p-values
 
-retrofun.RVS = function(null.value.by.fam,aggregate.geno.by.fam,Z,W,adjust.low.p = F, p.threshold = 0.001, n.Boot=NULL, method.adjust = c("Bootstrap", "Lee.Adjust")){
-  Score = compute.Stats.by.annot(null.value.by.fam,aggregate.geno.by.fam,Z,W)
-  Var = unlist(compute.Var.by.annot(null.value.by.fam,aggregate.geno.by.fam,Z,W))
+RetroFun.RVS = function(null.value.by.fam,aggregate.geno.by.fam,Z_annot,W, independence=F){
+  Burden.Stat = compute.Burden.by.Annot(null.value.by.fam,aggregate.geno.by.fam,Z_annot,W)$B
+  Var.Stat = unlist(compute.Var.by.annot(null.value.by.fam,aggregate.geno.by.fam,Z_annot,W,independence = independence))
   
-  Stats = lapply(Score, function(x){
-    S = (x / Var)
-    S[is.na(S)] = 0
-    S
+  p = pchisq(Burden.Stat/Var.Stat,1,lower.tail = F)
+  
+  df.p=data.frame(p)
+  colnames(df.p) = paste0("Score",1:length(p))
+  
+  df.p$ACAT = apply(df.p,1,function(x) ACAT(x[!is.nan(x)]))
+  df.p$Fisher = apply(df.p,1, function(x){
+    pchisq(-2*sum(log(x[!is.nan(x)])),2* length(x[!is.nan(x)]), lower.tail = F)
   })
-
-  p = lapply(Stats, function(x) pchisq(x,1,lower.tail = F))
-  p_tmp = unlist(p)
-  low_p = which(p_tmp<=p.threshold)
   
-  p = lapply(p, function(x) x[x!=1])
-  Score_tmp = Score$B
-  
-  if(adjust.low.p==F){
-    df_p = data.frame(do.call(rbind,p))
-    
-    df_p$ACAT = apply(df_p,1, ACAT)
-    df_p$Fisher = apply(df_p,1, function(x){
-      pchisq(-2*sum(log(x)),2* length(x), lower.tail = F)
-    })
-  }
-  else if(length(low_p) ==0){
-    df_p = data.frame(do.call(rbind,p))
-    
-    df_p$ACAT = apply(df_p,1, ACAT)
-    df_p$Fisher = apply(df_p,1, function(x){
-      pchisq(-2*sum(log(x)),2* length(x), lower.tail = F)
-    })
-  }
-  
-  else{
-    if(is.null(n.Boot)) print("Please specify a number of Bootstraps")
-    
-    else{
-    
-      agg_boot = replicate(n.Boot, resample.genos.by.fam(aggregate.geno.by.fam))
-      
-      if(length(low_p)==1) {
-        Stats_boot = apply(agg_boot,2, function(x) compute.Stats.by.annot(null.value.by.fam, x, Z[,c(1,low_p)])$B[2])
-        
-        if(method.adjust=="Bootstrap") {
-          p_boot = sum(floor(Stats_boot)>=floor(Score_tmp[low_p]))/n.Boot
-          p_tmp[low_p] = p_boot}
-        else {
-          p_tmp[low_p] = Get.p(floor(Score_tmp[low_p]),floor(Stats_boot))
-        }
-      }
-      else {
-        Stats_boot = apply(agg_boot,2, function(x) compute.Stats.by.annot(null.value.by.fam, x,Z[,low_p])$B)
-        
-        if(method.adjust=="Bootstrap") p_tmp[low_p] = sapply(1:nrow(Stats_boot), function(x) sum(floor(Stats_boot[x,]) >= floor(Score_tmp[low_p[x]]))/n.Boot)
-        else p_tmp[low_p] = sapply(1:nrow(Stats_boot), function(x) Get.p(floor(Score_tmp[low_p[x]]),floor(Stats_boot[x,])))
-      }
-    }
-    p$B[low_p] = p_tmp[low_p]
-    df_p = data.frame(do.call(rbind,p))
-    
-    df_p$ACAT = apply(df_p,1, ACAT)
-    df_p$Fisher = apply(df_p,1, function(x){
-      pchisq(-2*sum(log(x)),2* length(x), lower.tail = F)
-    })
-  # Stats[is.na(Stats)] = 0
-  # p = pchisq(Stats,1, lower.tail = F)
-  # p = p[p!=1]
-  # 
-  # df_p = data.frame(p)
-  # df_p[nrow(df_p)+1,"p"] = ACAT(p)
-  # df_p[nrow(df_p)+1,"p"] = pchisq(-2*sum(log(df_p[1:length(p),])),2* length(p), lower.tail = F)
-  # rownames(df_p) = c(paste0("Score",1:length(p)), "ACAT", "Fisher")
-  }
-  return(df_p)
+  return(df.p)
 }
 
 null = compute.null(forsim.N.list, forsim.pattern.prob.list)
@@ -420,8 +296,10 @@ resample.genos.by.fam = function(aggregate.geno.by.fam){
   
   agg_tmp = aggregate.geno.by.fam
   agg_tmp_ped_agg = aggregate.geno.by.fam$ped_agg[,-1]
+  
   for(x in 1:length(agg_tmp$ped_agg$pedigree)){
     famid = agg_tmp$ped_agg$pedigree[x]
+    
     sample_geno = sample(1:length(prob_sharing_by_famid[[famid]]),n_non_null[x])#, prob = prob_sharing_by_famid[[famid]])
     
     agg_tmp_ped_agg[x,index_non_null[[x]]] = sample_geno
@@ -431,5 +309,3 @@ resample.genos.by.fam = function(aggregate.geno.by.fam){
   
   return(agg_tmp)
 }
-
-
