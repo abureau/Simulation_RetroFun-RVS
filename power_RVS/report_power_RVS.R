@@ -11,11 +11,11 @@ ACAT.fct = function(vec)
 }
 # 2% of causal variants
 
-load("alter100.02.RData")
-load("alter75.02.RData")
-load("alter50.02.RData")
+load("alter100.02_v2.RData")
+load("alter75.02_v2.RData")
+load("alter50.02_v2.RData")
 
-# Close to 100% causal variants in CRH 1
+# 100% causal variants in CRH 1
 minp100.2pc.vec = sapply(p100.02.list,minp_Bonf)
 minpall100.2pc.vec = sapply(pall100.02.list,minp_Bonf)
 minpall_lf100.2pc.vec = sapply(pall_lf100.02.list,minp_Bonf)
@@ -25,8 +25,8 @@ minpall_lf100.2pc.vec = sapply(pall_lf100.02.list,minp_Bonf)
 ACATp100.2pc.vec = sapply(p100.02.list,ACAT.fct)
 ACATpall100.2pc.vec = sapply(pall100.02.list,ACAT.fct)
 ACATpall_lf100.2pc.vec = sapply(pall_lf100.02.list,ACAT.fct)
-power100.2pc.05 = c(sum(ACATp100.2pc.vec<0.05),sum(ACATpall100.2pc.vec<0.05),sum(ACATpall_lf100.2pc.vec<0.05))
-power100.2pc.3000 = c(sum(ACATp100.2pc.vec<0.05/3000),sum(ACATpall100.2pc.vec<0.05/3000),sum(ACATpall_lf100.2pc.vec<0.05/3000))
+power100.2pc.05 = c(sum(ACATp100.2pc.vec<0.05),sum(ACATpall100.2pc.vec<0.05),sum(ACATpall_lf100.2pc.vec<0.05))/length(ACATp100.2pc.vec)
+power100.2pc.3000 = c(sum(ACATp100.2pc.vec<0.05/3000),sum(ACATpall100.2pc.vec<0.05/3000),sum(ACATpall_lf100.2pc.vec<0.05/3000))/length(ACATp100.2pc.vec)
 
 
 # 75% causal variants in CRH 1
@@ -39,8 +39,8 @@ minpall_lf75.2pc.vec = sapply(pall_lf75.02.list,minp_Bonf)
 ACATp75.2pc.vec = sapply(p75.02.list,ACAT.fct)
 ACATpall75.2pc.vec = sapply(pall75.02.list,ACAT.fct)
 ACATpall_lf75.2pc.vec = sapply(pall_lf75.02.list,ACAT.fct)
-power75.2pc.05 = c(sum(ACATp75.2pc.vec<0.05),sum(ACATpall75.2pc.vec<0.05),sum(ACATpall_lf75.2pc.vec<0.05))
-power75.2pc.3000 = c(sum(ACATp75.2pc.vec<0.05/3000),sum(ACATpall75.2pc.vec<0.05/3000),sum(ACATpall_lf75.2pc.vec<0.05/3000))
+power75.2pc.05 = c(sum(ACATp75.2pc.vec<0.05),sum(ACATpall75.2pc.vec<0.05),sum(ACATpall_lf75.2pc.vec<0.05))/length(ACATp75.2pc.vec)
+power75.2pc.3000 = c(sum(ACATp75.2pc.vec<0.05/3000),sum(ACATpall75.2pc.vec<0.05/3000),sum(ACATpall_lf75.2pc.vec<0.05/3000))/length(ACATp75.2pc.vec)
 
 # 50% causal variants in CRH 1
 minp50.2pc.vec = sapply(p50.02.list,minp_Bonf)
@@ -52,9 +52,14 @@ minpall_lf50.2pc.vec = sapply(pall_lf50.02.list,minp_Bonf)
 ACATp50.2pc.vec = sapply(p50.02.list,ACAT.fct)
 ACATpall50.2pc.vec = sapply(pall50.02.list,ACAT.fct)
 ACATpall_lf50.2pc.vec = sapply(pall_lf50.02.list,ACAT.fct)
-power50.2pc.05 = c(sum(ACATp50.2pc.vec<0.05),sum(ACATpall50.2pc.vec<0.05),sum(ACATpall_lf50.2pc.vec<0.05))
-power50.2pc.3000 = c(sum(ACATp50.2pc.vec<0.05/3000),sum(ACATpall50.2pc.vec<0.05/3000),sum(ACATpall_lf50.2pc.vec<0.05/3000))
+power50.2pc.05 = c(sum(ACATp50.2pc.vec<0.05),sum(ACATpall50.2pc.vec<0.05),sum(ACATpall_lf50.2pc.vec<0.05))/length(ACATp50.2pc.vec)
+power50.2pc.3000 = c(sum(ACATp50.2pc.vec<0.05/3000),sum(ACATpall50.2pc.vec<0.05/3000),sum(ACATpall_lf50.2pc.vec<0.05/3000))/length(ACATp50.2pc.vec)
 
+power.05 = cbind(power100.2pc.05,power75.2pc.05,power50.2pc.05)
+power.3000 = cbind(power100.2pc.3000,power75.2pc.3000,power50.2pc.3000)
+row.names(power.3000) = row.names(power.05) = c("Partial sharing","Complete sharing","Complete sharing, fixed")
+power.05
+power.3000
 
 # Examine number of windows for variable length
 l100.2pc = sapply(p100.02.list,length)
@@ -92,11 +97,6 @@ power50.4pc.00005 = c(sum(minp50.4pc.vec<0.00005),sum(minpall50.4pc.vec<0.00005)
 
 #power.05 = cbind(power100.2pc.05,power75.2pc.05,power50.2pc.05,power100.4pc.05,power75.4pc.05,power50.4pc.05)
 #power.3000 = cbind(power100.2pc.3000,power75.2pc.3000,power50.2pc.3000,power100.4pc.3000,power75.4pc.3000,power50.4pc.00005)
-power.05 = cbind(power100.2pc.05,power75.2pc.05,power50.2pc.05)
-power.3000 = cbind(power100.2pc.3000,power75.2pc.3000,power50.2pc.3000)
-row.names(power.3000) = row.names(power.05) = c("Partial sharing","Complete sharing","Complete sharing, fixed")
-power.05
-power.3000
 
 # Examine number of windows for variable length
 l100.4pc = sapply(p100.04.list,length)

@@ -6,29 +6,37 @@ library(kinship2)
 load("../SPAPsimpleprob.RData")
 load("../pedsimple.RData")
 
-correction="remove.homo"
+correction="replace.homo"
 
 # Largeur de fenêtre
 lf = 5
 
-#ped_files_alter_75 = list.files("../CRHs_alter_20_75_agg", full.names=T)
-#ped_files_alter_90 = list.files("../sample_alter_10pcausal_90pinCRHs", full.names=T)
-ped_files_alter_100 = list.files("../Scenario_100_2perccausal_oneCRH", full.names=T)
+ped_files_alter_100.02 = list.files("../Pedfiles_OR20_200rep/100causal/", full.names=T, recursive=T)
+ped_files_alter_75.02 = list.files("../Pedfiles_OR20_200rep/75causal/", full.names = T, recursive=T)
+ped_files_alter_50.02 = list.files("../Pedfiles_OR20_200rep/50causal/", full.names = T, recursive = T)
+#ped_files_alter_100.02 = list.files("../Scenario_Power_2causal_100perc_1045_2/TAD", full.names=T)
+#ped_files_alter_75.02 = list.files("../Scenario75_0.02_1045_last/TAD", full.names=T)
+#ped_files_alter_50.02 = list.files("../Scenario50_0.02_1045_last/TAD", full.names=T)
+#ped_files_alter_75.02 = list.files("../Scenario75_0.02_1045_last", full.names = T, recursive=T)
+#ped_files_alter_50.02 = list.files("../Scenario50_0.02_1045_last", full.names = T, recursive = T)
+
 # Test avec un seul réplicat
 #pedfile = ped_files_alter_75[1]
-#pedfile = ped_files_alter_90[1]
-#pedfile = ped_files_alter_100[1]
+#pedfile = ped_files_alter_50[1]
+#pedfile = ped_files_alter_100.02[1]
 
 # Boucle sur les réplicats
-p.list = pall.list = jf.list = pall_lf.list = list()
+p100.02.list = pall100.02.list = jf100.02.list = pall_lf100.02.list = list()
 
-for (r in 1:length(ped_files_alter_100))
-{
+for (r in 1:length(ped_files_alter_100.02))
+#for (r in 1:200)
+  {
   cat("r=",r,"\n")
-  pedfile = ped_files_alter_100[r]
+  pedfile = ped_files_alter_100.02[r]
 
   sample = read.pedfile(pedfile)
   fam = sample$fam
+  fam$affected[is.na(fam$affected)] = 1
   affected = fam[fam$affected==2,"member"]
 
   # Créer pattern.prob.list et N.list
@@ -70,22 +78,23 @@ for (r in 1:length(ped_files_alter_100))
     print("No variants left after cleaning, please provide an other pedfile")
     break;
   }
+  # Remove duplicated variants
+  #genotypes_affected_unique = t(unique(t(genotypes_affected)))
+  dup = duplicated(t(genotypes_affected))
+  genotypes_affected_unique = genotypes_affected[,!dup]
   
   if(correction=="remove.homo"){
     #Keep only heterozyguous variants
-    hetero_variants = which(colSums(genotypes_affected==2) == 0)
-    genotypes_affected_sub = select(genotypes_affected, all_of(hetero_variants))
+    hetero_variants = which(colSums(genotypes_affected_unique==2) == 0)
+    genotypes_affected_sub_unique = select(genotypes_affected_unique, all_of(hetero_variants))
     
   } else if(correction=="replace.homo"){
     #Replace homozygous variants by heterogygous ones
-    genotypes_affected[genotypes_affected>=1] = 1 
-    genotypes_affected_sub = genotypes_affected
+    genotypes_affected_sub_unique = genotypes_affected_unique
+    genotypes_affected_sub_unique[genotypes_affected_sub_unique>1] = 1 
   } else{
     stop("Please choose a valid option for correction parameter")
   }
-  # Remove duplicated variants
-  # tmp = remove.duplicated.variants.by.ind(genotypes_affected_sub)
-  genotypes_affected_sub_unique = t(unique(t(genotypes_affected_sub)))
   # Statistiques des génotypes des variants retenus
   #dim(genotypes_affected_sub_unique)
   #apply(genotypes_affected_sub_unique,2,sum)
@@ -135,9 +144,11 @@ for (r in 1:length(ped_files_alter_100))
     tf = RVgene(genotypes_affected_RVgene,ech.list,sites=((j-1)*lf+1):min(j*lf,ncol(genotypes_affected_RVgene)-6),pattern.prob.list = ech.pattern.prob.list,N.list = ech.N.list,type="count",partial.sharing = F)
     pall_lf.vec[j] = tf$pall
   }
-p.list[[r]] = p.vec
-pall.list[[r]] = pall.vec
-pall_lf.list[[r]] = pall_lf.vec
-jf.list[[r]] = jf
+p100.02.list[[r]] = p.vec
+pall100.02.list[[r]] = pall.vec
+pall_lf100.02.list[[r]] = pall_lf.vec
+jf100.02.list[[r]] = jf
 #min(pall_lf.vec)*length(pall_lf.vec)  
 }
+
+#save(p100.02.list,pall100.02.list,pall_lf100.02.list,jf100.02.list,file="alter100.02_v2.RData")
