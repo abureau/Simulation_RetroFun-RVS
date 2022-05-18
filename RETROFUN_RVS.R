@@ -37,49 +37,38 @@ compute.null = function(pedigree.configurations, pedigree.probas){
 #' @param replace_ind_geno allow to remove variants on the same haplotype : A Boolean 
 #' @return A list with the ped file corrected and aggregated by family, the weight matrix and index each variants observed in families
 
-aggregate.geno.by.fam = function(pedfile, FamID, correction=NULL){
-  rep1 = read.pedfile(pedfile)
+aggregate.geno.by.fam = function(pedfile, FamID){
+  p = read.table(pedfile[x], header = F)
+  fam = p[,1:6]
+  affected = which(fam$V6==2)
+  genos = p[,7:ncol(p)]
   
-  fam = rep1$fam
-  fam$affected[is.na(fam$affected)] = 1
+  genos[genos==1] = 0
+  genos[genos==2] = 1
   
-  affected = fam[fam$affected==2,c("member","pedigree")]
+  df.genos = data.frame(do.call("cbind",lapply(seq(2, ncol(genos),2), function(x){
+    rowSums(genos[,c(x-1,x)])
+  })))
   
-  genotypes_all = data.frame(as(rep1$genotypes, "numeric"))
+  df.genos.affected = df.genos[affected,]
+  df.genos.affected = data.frame(t(unique(t(df.genos.affected))))
+  df.genos.affected[df.genos.affected==2] = 1
+  df.genos.affected = df.genos.affected[,-which(colSums(df.genos.affected)==0)]
   
-  #Keep only affected individuals
-  genotypes_affected = genotypes_all[rownames(genotypes_all)%in%affected$member,]
   
-  genotypes_affected_sub_unique = t(unique(t(genotypes_affected)))
-  genotypes_affected_sub_unique[is.na(genotypes_affected_sub_unique)] = 0
+  df.genos.affected$pedigree = fam[affected,"V1"]
+  df.genos.affected$pedigree = ifelse(df.genos.affected$pedigree %in% FamID, df.genos.affected$pedigree,sub('^[A-Z]', '', df.genos.affected$pedigree))
   
-  if(correction=="replace.homo"){
-    genotypes_affected_sub_unique[genotypes_affected_sub_unique==2] = 1
-  }
-  else if(correction=="remove.homo"){
-    hetero_cols = which(colSums(genotypes_affected_sub_unique==2)==0)
-    genotypes_affected_sub_unique = genotypes_affected_sub_unique[,hetero_cols]
-  }
+  df.genos.agg.by.fam = aggregate(.~pedigree,df.genos.affected, sum)
   
-  aberr_cols = which(colSums(genotypes_affected_sub_unique)>nrow(genotypes_affected_sub_unique)/2)
-  if(length(aberr_cols)>0)  genotypes_affected_sub_unique = genotypes_affected_sub_unique[,-aberr_cols]
+  index_null_fam = which(rowSums(df.genos.agg.by.fam[,-1])==0)
+  if(length(index_null_fam) > 0) df.genos.agg.by.fam = df.genos.agg.by.fam[-index_null_fam,]
   
-  index_col = as.numeric(gsub("locus.", "", colnames(genotypes_affected_sub_unique)))
+  locus.col = as.numeric(gsub("X", "", colnames(df.genos.agg.by.fam[,-1])))
   
-  genotypes_affected_sub_unique = data.frame(genotypes_affected_sub_unique[,colnames(genotypes_affected_sub_unique)[order(index_col)]])
   
-  genotypes_affected_sub_unique$member = rownames(genotypes_affected_sub_unique)
+  return(list("ped_agg"=df.genos.agg.by.fam, "index_variants"=locus.col))
   
-  genotypes_affected_sub_unique = merge(genotypes_affected_sub_unique,affected, by="member")
-  genotypes_affected_sub_unique$member=NULL
-  
-  agg_by_fam = aggregate(.~pedigree,genotypes_affected_sub_unique,sum)
-  
-  if(length(which(rowSums(agg_by_fam[,-1])==0))>0) agg_by_fam = agg_by_fam[-which(rowSums(agg_by_fam[,-1])==0),]
-  
-  agg_by_fam$pedigree = ifelse(agg_by_fam$pedigree %in% FamID, agg_by_fam$pedigree,sub('^[A-Z]', '', agg_by_fam$pedigree))
-  
-  return(list("ped_agg" = agg_by_fam, "index_variants" = sort(index_col)))
 }
 
 
@@ -160,10 +149,11 @@ compute.Burden.by.Annot = function(null.value.by.fam,aggregate.geno.by.fam,Z_ann
   S_by_var = colSums(diff_obs_expected_all_fam)
   Wz_sub = W_sub%*%Z_annot[aggregate.geno.by.fam$index_variants,]
   
+  
   S_Wz = S_by_var%*%Wz_sub
   Burden_by_annot = S_Wz^2
-  
-  return(return(list("B"=Burden_by_annot)))
+
+  return(list("B"=Burden_by_annot))
   
 }
 
