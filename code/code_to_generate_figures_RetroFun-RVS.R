@@ -1,3 +1,6 @@
+#This code generates figures presented in the paper
+#The data used in this script are available in the repo
+
 library(ggplot2)
 library(ggpubr)
 
@@ -30,11 +33,11 @@ gg_qqplot_facet_grid <- function(list_pvalues,ci = 0.95, title="") {
 }
 
 #Main results
-pvalues_null_SW = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_SW.RDS")
-pvalues_null_Pairs = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_Pairs.RDS")
-pvalues_null_Genes = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_Genes.RDS")
-pvalues_null = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_CRHs.RDS")
-pvalues_null_indep = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_CRHs_indep.RDS")
+pvalues_null_SW = readRDS("data\\pvalues_null_SW.RDS")
+pvalues_null_Pairs = readRDS("data\\pvalues_null_Pairs.RDS")
+pvalues_null_Genes = readRDS("data\\pvalues_null_Genes.RDS")
+pvalues_null = readRDS("data\\pvalues_null_CRHs.RDS")
+pvalues_null_indep = readRDS("data\\pvalues_null_CRHs_indep.RDS")
 
 #Figure 3
 gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$ACAT)))+theme(legend.position = "none")
@@ -58,18 +61,18 @@ gg_qqplot_facet_grid(list("Genes"=sapply(pvalues_null_Genes, function(x) x$ACAT)
                           "Pairs"=sapply(pvalues_null_Pairs, function(x) x$ACAT)))+labs(colour="Functional Annotation")
 
 #Small pedigrees
-pvalues_null_smallped_indep = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_smallped_independence.RDS")
-pvalues_null_smallped_dep = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_smallped_dependence.RDS")
+pvalues_null_smallped_indep = readRDS("data\\pvalues_null_smallped_independence.RDS")
+pvalues_null_smallped_dep = readRDS("data\\pvalues_null_smallped_dependence.RDS")
 
 gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null_smallped_dep, function(x) x$ACAT), "Independence"=sapply(pvalues_null_smallped_indep, function(x) x$ACAT)))+labs(color="Variant Structure")
 
 #Different pedigree structures
-p.values.two.affected = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_two_affected.RDS")
-p.values.three.affected= readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_three_affected.RDS")
-p.values.four.affected = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_four_affected.RDS")
-p.values.five.affected = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_five_affected.RDS")
-p.values.six.affected = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_six_affected.RDS")
-p.values.seven.affected = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_seven_affected.RDS")
+p.values.two.affected = readRDS("data\\pvalues_null_two_affected.RDS")
+p.values.three.affected= readRDS("data\\pvalues_null_three_affected.RDS")
+p.values.four.affected = readRDS("data\\pvalues_null_four_affected.RDS")
+p.values.five.affected = readRDS("data\\pvalues_null_five_affected.RDS")
+p.values.six.affected = readRDS("data\\pvalues_null_six_affected.RDS")
+p.values.seven.affected = readRDS("data\\pvalues_null_seven_affected.RDS")
 
 gg_qqplot_facet_grid(list("2 affected"=sapply(p.values.two.affected, function(x) x$ACAT),
                           "3 affected"=sapply(p.values.three.affected, function(x) x$ACAT),
@@ -80,10 +83,10 @@ gg_qqplot_facet_grid(list("2 affected"=sapply(p.values.two.affected, function(x)
 
 
 #Consanguinity 
-pvalues.null.with.only.consanguinity.uncorrected = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_only_consanguinity_uncorrected.RDS")
-pvalues.null.with.only.consanguinity.corrected = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_only_consanguinity_corrected.RDS")
-pvalues.null.with.consanguinity.corrected = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_consanguinity_corrected.RDS")
-pvalues.null.with.consanguinity.unccorrected = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_null_only_consanguinity_uncorrected.RDS")
+pvalues.null.with.only.consanguinity.uncorrected = readRDS("data\\pvalues_null_only_consanguinity_uncorrected.RDS")
+pvalues.null.with.only.consanguinity.corrected = readRDS("data\\pvalues_null_only_consanguinity_corrected.RDS")
+pvalues.null.with.consanguinity.corrected = readRDS("data\\pvalues_null_consanguinity_corrected.RDS")
+pvalues.null.with.consanguinity.unccorrected = readRDS("data\\pvalues_null_only_consanguinity_uncorrected.RDS")
 
 ggarrange(gg_qqplot_facet_grid(list("Corrected" = sapply(pvalues.null.with.consanguinity.corrected, function(x) x$ACAT),
                           "Uncorrected"=sapply(pvalues.null.with.consanguinity.unccorrected, function(x) x$ACAT)))+labs(colour="Correction"),
@@ -93,10 +96,10 @@ gg_qqplot_facet_grid(list("Corrected" = sapply(pvalues.null.with.only.consanguin
 
 
 #Power 2 causal
-pvalues.alter.2causal.CRHs = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_2causal_CRHs.RDS")
-pvalues.alter.2causal.Genes = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_2causal_Genes.RDS")
-pvalues.alter.2causal.Pairs = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_2causal_Pairs.RDS")
-pvalues.alter.2causal.SW = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_2causal_SW.RDS")
+pvalues.alter.2causal.CRHs = readRDS("data\\pvalues_alter_2causal_CRHs.RDS")
+pvalues.alter.2causal.Genes = readRDS("data\\pvalues_alter_2causal_Genes.RDS")
+pvalues.alter.2causal.Pairs = readRDS("data\\pvalues_alter_2causal_Pairs.RDS")
+pvalues.alter.2causal.SW = readRDS("data\\pvalues_alter_2causal_SW.RDS")
 
 pvalues_CHP_75causal = list.files("D:\\Vraisemblance_retrospective\\Simulation\\data\\results_RVNPL_2causal_75\\CHP", full.names = T)
 pvalues_RV_75causal = list.files("D:\\Vraisemblance_retrospective\\Simulation\\data\\results_RVNPL_2causal_75\\RV", full.names = T)
@@ -219,9 +222,9 @@ power_2causal_smallped_50_OR5 = lapply(1:1000, function(x) RetroFun.RVS(null,agg
 
 #1 causal 
 
-power_1causal_100_OR5 = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_1causal_100_OR5.RDS")
-power_1causal_75_OR5 = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_1causal_75_OR5.RDS")
-power_1causal_50_OR5 = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_1causal_50_OR5.RDS")
+power_1causal_100_OR5 = readRDS("data\\pvalues_alter_1causal_100_OR5.RDS")
+power_1causal_75_OR5 = readRDS("data\\pvalues_alter_1causal_75_OR5.RDS")
+power_1causal_50_OR5 = readRDS("data\\pvalues_alter_1causal_50_OR5.RDS")
 
 df_power_CRHs_Combined_1causal_OR5 = data.frame("Power"=c(sum(sapply(power_1causal_100_OR5, function(x) x$Score_V1)<=8.33e-6)/1000,
                                                           sum(sapply(power_1causal_100_OR5, function(x) x$ACAT)<=8.33e-6)/1000,
@@ -269,10 +272,10 @@ sum(pvalues_ACAT_RV_75causal_pairs<=8.333333e-06)/200
 sum(pvalues_ACAT_RV_75causal_all<=8.333333e-06)/200
 
 
-pvalues.alter.1causal.CRHs = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_1causal_CRHs.RDS")
-pvalues.alter.1causal.Genes = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_1causal_Genes.RDS")
-pvalues.alter.1causal.Pairs = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_1causal_Pairs.RDS")
-pvalues.alter.1causal.SW = readRDS("C:\\Users\\loicm\\Desktop\\Retrospective_LL\\data\\pvalues_alter_1causal_SW.RDS")
+pvalues.alter.1causal.CRHs = readRDS("data\\pvalues_alter_1causal_CRHs.RDS")
+pvalues.alter.1causal.Genes = readRDS("data\\pvalues_alter_1causal_Genes.RDS")
+pvalues.alter.1causal.Pairs = readRDS("data\\pvalues_alter_1causal_Pairs.RDS")
+pvalues.alter.1causal.SW = readRDS("data\\pvalues_alter_1causal_SW.RDS")
 
 df_power_Retro_RVS_RVNPL_1causal = data.frame("Power" = c(sum(sapply(pvalues.alter.1causal.CRHs$`75causal`, function(x) x$ACAT)<=8.333333e-06)/1000,
                                                   sum(sapply(pvalues.alter.1causal.Genes$`75causal`, function(x) x$ACAT)<=8.333333e-06)/1000,
