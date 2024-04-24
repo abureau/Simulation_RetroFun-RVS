@@ -1,12 +1,14 @@
 #This code generates data for Type-I error rate 
 #The data produced by this script are available in the repo
+#Unprocessed data were not provided due to storage limitations
+#If you want to run this script with the original data please contact Loic Mangnier
 
 library(RetroFunRVS)
 library(ggplot2)
 library(ggpubr)
 
 #Functions for generating fancy qqplots
-gg_qqplot_facet_grid <- function(list_pvalues,ci = 0.95, title="") {
+gg_qqplot_facet_grid = function(list_pvalues,ci = 0.95, title="") {
   #n  <- length(ps)
   
   dfs <- lapply(1:length(list_pvalues), function(i) {
@@ -34,7 +36,7 @@ gg_qqplot_facet_grid <- function(list_pvalues,ci = 0.95, title="") {
   
 }
 
-gg_qqplot <- function(ps, ci = 0.95) {
+gg_qqplot = function(ps, ci = 0.95) {
   n  <- length(ps)
   df <- data.frame(
     observed = -log10(sort(ps)),

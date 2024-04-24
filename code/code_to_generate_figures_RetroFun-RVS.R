@@ -4,7 +4,7 @@
 library(ggplot2)
 library(ggpubr)
 
-gg_qqplot_facet_grid <- function(list_pvalues,ci = 0.95, title="") {
+gg_qqplot_facet_grid = function(list_pvalues,ci = 0.95, title="") {
   #n  <- length(ps)
   
   dfs <- lapply(1:length(list_pvalues), function(i) {
@@ -101,8 +101,8 @@ pvalues.alter.2causal.Genes = readRDS("data\\pvalues_alter_2causal_Genes.RDS")
 pvalues.alter.2causal.Pairs = readRDS("data\\pvalues_alter_2causal_Pairs.RDS")
 pvalues.alter.2causal.SW = readRDS("data\\pvalues_alter_2causal_SW.RDS")
 
-pvalues_CHP_75causal = list.files("D:\\Vraisemblance_retrospective\\Simulation\\data\\results_RVNPL_2causal_75\\CHP", full.names = T)
-pvalues_RV_75causal = list.files("D:\\Vraisemblance_retrospective\\Simulation\\data\\results_RVNPL_2causal_75\\RV", full.names = T)
+pvalues_CHP_75causal = list.files("data\\results_RVNPL_2causal_75\\CHP", full.names = T)
+pvalues_RV_75causal = list.files("data\\results_RVNPL_2causal_75\\RV", full.names = T)
 
 pvalues_ACAT_CHP_75causal_pairs = c()
 pvalues_ACAT_CHP_75causal_all = c()
@@ -212,9 +212,9 @@ panel3 = ggarrange(ggarrange(ggplot(df_power_CRHs_2causal_OR5, aes(x=Type, y=Pow
 
 
 ggplot(df_power_CRHs_Combined_2causal_OR5_SW, aes(x=Annot, y=Power, fill=Annot))+geom_bar(position = "dodge", stat="identity",color="black")+theme_bw()+theme(legend.position="none",text = element_text(size = 15))+ylim(c(0,1))+xlab("Score Type")+ylab("Power")+facet_grid(.~Prop)
-pedfiles_2causal_smallped_100_OR5 = list.files("D:\\Vraisemblance_retrospective\\Simulation\\data\\data_smallped\\power\\2causal\\100causal", full.names=T, recursive = T)
-pedfiles_2causal_smallped_75_OR5 = list.files("D:\\Vraisemblance_retrospective\\Simulation\\data\\data_smallped\\power\\2causal\\75causal", full.names=T, recursive=T)
-pedfiles_2causal_smallped_50_OR5 = list.files("D:\\Vraisemblance_retrospective\\Simulation\\data\\data_smallped\\power\\2causal\\50causal", full.names=T, recursive=T)
+pedfiles_2causal_smallped_100_OR5 = list.files("data\\data_smallped\\power\\2causal\\100causal", full.names=T, recursive = T)
+pedfiles_2causal_smallped_75_OR5 = list.files("data\\data_smallped\\power\\2causal\\75causal", full.names=T, recursive=T)
+pedfiles_2causal_smallped_50_OR5 = list.files("data\\data_smallped\\power\\2causal\\50causal", full.names=T, recursive=T)
 
 power_2causal_smallped_100_OR5 = lapply(1:1000, function(x) RetroFun.RVS(null,agg_2causal_smallped_100_OR5[[x]], Z,W))
 power_2causal_smallped_75_OR5 = lapply(1:1000, function(x) RetroFun.RVS(null,agg_2causal_smallped_75_OR5[[x]], Z,W))
@@ -240,8 +240,8 @@ ggplot(df_power_CRHs_Combined_1causal_OR5, aes(x=Annot, y=Power, fill=Annot))+ge
 
 
 
-pvalues_CHP_75causal = list.files("D:\\Vraisemblance_retrospective\\Simulation\\data\\results_RVNPL_1causal_75\\CHP", full.names = T)
-pvalues_RV_75causal = list.files("D:\\Vraisemblance_retrospective\\Simulation\\data\\results_RVNPL_1causal_75\\RV", full.names = T)
+pvalues_CHP_75causal = list.files("data\\results_RVNPL_1causal_75\\CHP", full.names = T)
+pvalues_RV_75causal = list.files("data\\results_RVNPL_1causal_75\\RV", full.names = T)
 
 pvalues_ACAT_CHP_75causal_pairs = c()
 pvalues_ACAT_CHP_75causal_all = c()

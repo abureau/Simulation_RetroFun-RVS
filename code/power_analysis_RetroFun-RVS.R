@@ -51,7 +51,7 @@ pedfiles_1causal_50_OR5 = list.files("data\\1causal\\50causal", full.names=T, re
 Z = read.table("data\\Annot_Z_CRHs.mat", header=F)
 null_without_consanguinity = read.table("data\\null_without_consanguinity.txt", header=TRUE)
 
-variants_by_annot = apply(Z,2,function(x) which(x!=0))
+variants_by_annot_CRHs = apply(Z,2,function(x) which(x!=0))
 
 
 filter.rep.n.fam = function(agg_pedfile,variants.by.annot){
@@ -500,19 +500,14 @@ sum(pvalues_ACAT_RV_75causal_pairs<=8.333333e-06)/200
 sum(pvalues_ACAT_RV_75causal_all<=8.333333e-06)/200
 
 
-
-pedfiles_2causal_smallped_100_OR5 = list.files("\\data\\data_smallped\\power\\2causal\\100causal", full.names=T, recursive = T)
-pedfiles_2causal_smallped_75_OR5 = list.files("\\data\\data_smallped\\power\\2causal\\75causal", full.names=T, recursive=T)
-pedfiles_2causal_smallped_50_OR5 = list.files("\\data\\data_smallped\\power\\2causal\\50causal", full.names=T, recursive=T)
+pedfiles_2causal_smallped_100_OR5 = list.files("data\\data_smallped\\power\\2causal\\100causal", full.names=T, recursive = T)
+pedfiles_2causal_smallped_75_OR5 = list.files("data\\data_smallped\\power\\2causal\\75causal", full.names=T, recursive=T)
+pedfiles_2causal_smallped_50_OR5 = list.files("data\\data_smallped\\power\\2causal\\50causal", full.names=T, recursive=T)
 
 
 agg_2causal_smallped_100_OR5 = lapply(1:1000, function(x) agg.geno.by.fam.for.sim(pedfiles_2causal_smallped_100_OR5[x], null_without_consanguinity$FamID))
 agg_2causal_smallped_75_OR5 = lapply(1:1000, function(x) agg.geno.by.fam.for.sim(pedfiles_2causal_smallped_75_OR5[x], null_without_consanguinity$FamID))
 agg_2causal_smallped_50_OR5 = lapply(1:1000, function(x) agg.geno.by.fam.for.sim(pedfiles_2causal_smallped_50_OR5[x], null_without_consanguinity$FamID))
-
-power_2causal_smallped_100_OR5 = lapply(1:1000, function(x) RetroFunRVS::RetroFun.RVS(null,agg_2causal_smallped_100_OR5[[x]], Z,W))
-power_2causal_smallped_75_OR5 = lapply(1:1000, function(x) RetroFunRVS::RetroFun.RVS(null,agg_2causal_smallped_75_OR5[[x]], Z,W))
-power_2causal_smallped_50_OR5 = lapply(1:1000, function(x) RetroFunRVS::RetroFun.RVS(null,agg_2causal_smallped_50_OR5[[x]], Z,W))
 
 power_2causal_smallped_100_OR5 = lapply(1:1000, function(x) {
   print(x)
@@ -562,5 +557,6 @@ df_power_CRHs_Combined_2causal_OR5_smallped$Annot = factor(df_power_CRHs_Combine
 ggplot(df_power_CRHs_Combined_2causal_OR5_smallped, aes(x=Annot, y=Power, fill=Annot))+geom_bar(position = "dodge", stat="identity",color="black")+labs(fill="Proportion")+xlab("Type")+theme_bw()+theme(legend.position = "none")+facet_grid(.~Prop)
 
 
+saveRDS(list("100causal"=power_2causal_smallped_100_OR5,"75causal"=power_2causal_smallped_75_OR5, "50causal"=power_2causal_smallped_50_OR5),"C:\\Users\\loicm\\Desktop\\Projets\\Github\\Simulation_RL\\data\\pvalues_alter_2causal_smallped_CRHs.RDS")
 
 
