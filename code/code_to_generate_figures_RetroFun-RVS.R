@@ -39,7 +39,7 @@ pvalues_null_Genes = readRDS("data\\pvalues_null_Genes.RDS")
 pvalues_null = readRDS("data\\pvalues_null_CRHs.RDS")
 pvalues_null_indep = readRDS("data\\pvalues_null_CRHs_indep.RDS")
 
-#Figure 3
+#Figure 3 + Figure S4-S5-S8: Control of Type-I error rate
 gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$ACAT)))+theme(legend.position = "none")
 
 ggarrange(gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$ACAT), 
@@ -74,6 +74,7 @@ p.values.five.affected = readRDS("data\\pvalues_null_five_affected.RDS")
 p.values.six.affected = readRDS("data\\pvalues_null_six_affected.RDS")
 p.values.seven.affected = readRDS("data\\pvalues_null_seven_affected.RDS")
 
+#Figure S6
 gg_qqplot_facet_grid(list("2 affected"=sapply(p.values.two.affected, function(x) x$ACAT),
                           "3 affected"=sapply(p.values.three.affected, function(x) x$ACAT),
                           "4 affected"=sapply(p.values.four.affected, function(x) x$ACAT),
@@ -82,7 +83,7 @@ gg_qqplot_facet_grid(list("2 affected"=sapply(p.values.two.affected, function(x)
                           "7 affected"=sapply(p.values.seven.affected, function(x) x$ACAT)))+labs(colour="Pedigree")
 
 
-#Consanguinity 
+#Figure S7: Consanguinity 
 pvalues.null.with.only.consanguinity.uncorrected = readRDS("data\\pvalues_null_only_consanguinity_uncorrected.RDS")
 pvalues.null.with.only.consanguinity.corrected = readRDS("data\\pvalues_null_only_consanguinity_corrected.RDS")
 pvalues.null.with.consanguinity.corrected = readRDS("data\\pvalues_null_consanguinity_corrected.RDS")
@@ -95,7 +96,7 @@ gg_qqplot_facet_grid(list("Corrected" = sapply(pvalues.null.with.only.consanguin
                           "Uncorrected"=sapply(pvalues.null.with.only.consanguinity.uncorrected, function(x) x$ACAT)))+labs(colour="Correction"), labels = c("A","B"), ncol=2)
 
 
-#Power 2 causal
+#Figure 4: Power at 2% causal variants
 pvalues.alter.2causal.CRHs = readRDS("data\\pvalues_alter_2causal_CRHs.RDS")
 pvalues.alter.2causal.Genes = readRDS("data\\pvalues_alter_2causal_Genes.RDS")
 pvalues.alter.2causal.Pairs = readRDS("data\\pvalues_alter_2causal_Pairs.RDS")
@@ -205,13 +206,14 @@ df_power_CRHs_Combined_2causal_OR5_Pairs$Annot = factor(df_power_CRHs_Combined_2
 
 
 
-panel3 = ggarrange(ggarrange(ggplot(df_power_CRHs_2causal_OR5, aes(x=Type, y=Power, fill=Type))+geom_bar(position = "dodge", stat="identity",color="black")+theme_bw()+theme(legend.position="none",text = element_text(size = 15))+ylim(c(0,1))+facet_grid(.~Prop)+xlab("Score Type")+ylab("Power"),
+panel4 = ggarrange(ggarrange(ggplot(df_power_CRHs_2causal_OR5, aes(x=Type, y=Power, fill=Type))+geom_bar(position = "dodge", stat="identity",color="black")+theme_bw()+theme(legend.position="none",text = element_text(size = 15))+ylim(c(0,1))+facet_grid(.~Prop)+xlab("Score Type")+ylab("Power"),
                              ggplot(rbind(df_power_CRHs_Combined_2causal_OR5[df_power_CRHs_Combined_2causal_OR5$Annot=="ACAT-Combined",],df_power_CRHs_Combined_2causal_OR5_pairs[df_power_CRHs_Combined_2causal_OR5_pairs$Annot=="ACAT-Combined",],
                                           df_power_CRHs_Combined_2causal_OR5_genes[df_power_CRHs_Combined_2causal_OR5_genes$Annot=="ACAT-Combined",]), aes(x=Annotation,y=Power,fill=Annotation))+geom_bar(stat="identity",position="dodge", colour="black")+facet_grid(.~Prop)+theme_bw()+theme(legend.position = "none",text = element_text(size = 15)), labels = c("A","B"), ncol=2),
                    ggarrange(ggplot(df_power_Retro_RVS_RVNPL, aes(x=Type, y=Power, fill=Type))+geom_bar(position = "dodge", stat="identity",color="black")+theme_bw()+theme(legend.position="none",text = element_text(size = 15))+ylim(c(0,1))+xlab("Type")+ylab("Power \nACAT-Combined")+facet_grid(.~Method,scales = "free", space = "free"), labels = "C"), ncol=1, nrow=2)
 
 
 ggplot(df_power_CRHs_Combined_2causal_OR5_SW, aes(x=Annot, y=Power, fill=Annot))+geom_bar(position = "dodge", stat="identity",color="black")+theme_bw()+theme(legend.position="none",text = element_text(size = 15))+ylim(c(0,1))+xlab("Score Type")+ylab("Power")+facet_grid(.~Prop)
+
 pedfiles_2causal_smallped_100_OR5 = list.files("data\\data_smallped\\power\\2causal\\100causal", full.names=T, recursive = T)
 pedfiles_2causal_smallped_75_OR5 = list.files("data\\data_smallped\\power\\2causal\\75causal", full.names=T, recursive=T)
 pedfiles_2causal_smallped_50_OR5 = list.files("data\\data_smallped\\power\\2causal\\50causal", full.names=T, recursive=T)
@@ -220,7 +222,7 @@ power_2causal_smallped_100_OR5 = lapply(1:1000, function(x) RetroFun.RVS(null,ag
 power_2causal_smallped_75_OR5 = lapply(1:1000, function(x) RetroFun.RVS(null,agg_2causal_smallped_75_OR5[[x]], Z,W))
 power_2causal_smallped_50_OR5 = lapply(1:1000, function(x) RetroFun.RVS(null,agg_2causal_smallped_50_OR5[[x]], Z,W))
 
-#1 causal 
+#Figure S10-14: Power at 2%-1% causal variants for competitor methods or different types of functional annotations
 
 power_1causal_100_OR5 = readRDS("data\\pvalues_alter_1causal_100_OR5.RDS")
 power_1causal_75_OR5 = readRDS("data\\pvalues_alter_1causal_75_OR5.RDS")
