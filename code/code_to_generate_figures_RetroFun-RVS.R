@@ -135,7 +135,7 @@ sum(pvalues_ACAT_RV_75causal_all<=8.333333e-06)/200
 
 df_power_Retro_RVS_RVNPL = data.frame("Power" = c(sum(sapply(pvalues.alter.2causal.CRHs$`75causal`, function(x) x$ACAT)<=8.333333e-06)/1000,
                                                   sum(sapply(pvalues.alter.2causal.Genes$`75causal`, function(x) x$ACAT)<=8.333333e-06)/1000,
-                                                  0.345,0.015,
+                                                  power.6000[2,2],power.6000[1,2],
                                                   sum(pvalues_ACAT_RV_75causal_pairs<=8.333333e-06)/200,
                                                   sum(pvalues_ACAT_RV_75causal_all<=8.333333e-06)/200,
                                                   sum(pvalues_ACAT_CHP_75causal_pairs<=8.333333e-06)/200,
@@ -281,7 +281,7 @@ pvalues.alter.1causal.SW = readRDS("data\\pvalues_alter_1causal_SW.RDS")
 
 df_power_Retro_RVS_RVNPL_1causal = data.frame("Power" = c(sum(sapply(pvalues.alter.1causal.CRHs$`75causal`, function(x) x$ACAT)<=8.333333e-06)/1000,
                                                   sum(sapply(pvalues.alter.1causal.Genes$`75causal`, function(x) x$ACAT)<=8.333333e-06)/1000,
-                                                  0.28,0.04,
+                                                  power.1pc.6000[2,2],power.1pc.6000[1,2],
                                                   sum(pvalues_ACAT_RV_75causal_pairs<=8.333333e-06)/200,
                                                   sum(pvalues_ACAT_RV_75causal_all<=8.333333e-06)/200,
                                                   sum(pvalues_ACAT_CHP_75causal_pairs<=8.333333e-06)/200,
