@@ -12,12 +12,12 @@ ACAT.fct = function(vec)
   ACAT(vec)
 }
 
-load("data\\powerRVS\\OR5_100.02.RData")
-load("data\\powerRVS\\OR5_75.02.RData")
-load("data\\powerRVS\\OR5_50.02.RData")
-load("data\\powerRVS\\OR5_100.01.RData")
-load("data\\powerRVS\\OR5_75.01.RData")
-load("data\\powerRVS\\OR5_50.01.RData")
+load("data\\power_RVS\\OR5_100.02.RData")
+load("data\\power_RVS\\OR5_75.02.RData")
+load("data\\power_RVS\\OR5_50.02.RData")
+load("data\\power_RVS\\OR5_100.01.RData")
+load("data\\power_RVS\\OR5_75.01.RData")
+load("data\\power_RVS\\OR5_50.01.RData")
 
 # 100% causal variants in CRH 1
 
