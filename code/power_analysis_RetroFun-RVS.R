@@ -1,15 +1,23 @@
-#This code generates data for power
+#This code generates data for Type-I error rate 
 #The data produced by this script are available in the repo
+#Unprocessed data were not provided due to storage limitations
+#If you want to run this script with the original data please contact Loic Mangnier at loic.mangnier@gmail.com
 
-library(RetroFunRVS)
+library(RetroFunRVS) #Refer to https://github.com/lmangnier/RetroFun-RVS for installing the package
 library(ggplot2)
+library(ggpubr)
 
-#This function reproduces the agg.genos.by.fam function 
-#with slight modifications for accomodating synthetic data structures
+#This function is adapted from agg.genos.by.fam in the RetroFun-RVS package
+#The only difference is that in simulation studies we had to repeat some families 
+#in order to have reasonable computation time while reaching the observed number of affected (273)
+#Letters [A-Z] have been added for repeated pedigrees, function removes this letter for repeated pedigrees,
+#the corresponding function is line 42 in the function below
+
 agg.geno.by.fam.for.sim = function(pedfile, FamID=NULL){
   p = read.table(pedfile, header = F)
   fam = p[,1:6]
-  #Need to be changed by 1 for certain scenarios
+  
+  
   affected = which(fam$V6==2)
   genos = p[,7:ncol(p)]
   
@@ -32,6 +40,8 @@ agg.geno.by.fam.for.sim = function(pedfile, FamID=NULL){
   index_null_fam = which(rowSums(df.genos.agg.by.fam[,-1])==0)
   if(length(index_null_fam) > 0) df.genos.agg.by.fam = df.genos.agg.by.fam[-index_null_fam,]
   
+  #This part of the code removes the first character if the pedigree is not present in a user pre-specified list
+  #only used for simulation, this part is ignored in real data analysis
   df.genos.agg.by.fam$pedigree = ifelse(df.genos.agg.by.fam$pedigree %in% FamID, df.genos.agg.by.fam$pedigree,sub('^[A-Z]', '', df.genos.agg.by.fam$pedigree))
   
   locus.col = as.numeric(gsub("X", "", colnames(df.genos.agg.by.fam[,-1])))
