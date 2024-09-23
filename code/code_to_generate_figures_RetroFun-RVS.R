@@ -33,27 +33,52 @@ gg_qqplot_facet_grid = function(list_pvalues,ci = 0.95, title="") {
 }
 
 #Main results
-pvalues_null_SW = readRDS("data\\pvalues_null_SW.RDS")
-pvalues_null_Pairs = readRDS("data\\pvalues_null_Pairs.RDS")
-pvalues_null_Genes = readRDS("data\\pvalues_null_Genes.RDS")
-pvalues_null = readRDS("data\\pvalues_null_CRHs.RDS")
-pvalues_null_indep = readRDS("data\\pvalues_null_CRHs_indep.RDS")
+pvalues_null_SW = readRDS("data/pvalues_null/pvalues_null_SW.RDS")
+pvalues_null_Pairs = readRDS("data/pvalues_null/pvalues_null_Pairs.RDS")
+pvalues_null_Genes = readRDS("data/pvalues_null/pvalues_null_Genes.RDS")
+pvalues_null = readRDS("data/pvalues_null/pvalues_null_CRHs.RDS")
+pvalues_null_indep = readRDS("data/pvalues_null/pvalues_null_CRHs_indep.RDS")
+# The resulting object res contains 10^7 replicates
+res = readRDS("sim_object_graham.rds")
+res = append(res,readRDS("sim_object_arcturus.rds"))
+
+# Function to compute ACAT-combined p-values with varying minimal family number thresholds
+ACATp = function(l,ped.varcut)
+{
+  vec = unlist(l)
+  x = vec[1:5][vec[8:12]>=ped.varcut]
+  ACAT::ACAT(x[!is.nan(x)])
+}
+
+# minimal family number thresholds
+pedcut.vec = c(5,10,15,20,25)
+
+# Computation of ACAT-combined p-values
+ACATp.mat = matrix(NA,length(res),length(pedcut.vec))
+for (i in 1:ncol(ACATp.mat)) ACATp.mat[,i] = sapply(res,ACATp,ped.varcut = pedcut.vec[i])
 
 #Figure 3 + Figure S4-S5-S8: Control of Type-I error rate
-gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$ACAT)))+theme(legend.position = "none")
+#gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$ACAT)))+theme(legend.position = "none")
 
+png("QQplot_main.png")
+gg_qqplot_facet_grid(list("5"=ACATp.mat[,1],"15"=ACATp.mat[,3],"25"=ACATp.mat[,5]))+labs(colour="Min families")
+dev.off()
+
+png("QQplot_all.png")
 ggarrange(gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$ACAT), 
                                               "Independence" = sapply(pvalues_null_indep, function(x) x$ACAT)))+labs(colour="Variant Structure"),
           gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$Fisher), 
-                                    "Independence" = sapply(pvalues_null_indep, function(x) x$Fisher)))+labs(colour="Variant Structure"),
-          gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$Score_V1),
-                                              "Independence"=sapply(pvalues_null_indep, function(x) x$Score_V1)))+labs(colour="Variant Structure"),
-          gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$Score_V2),
-          "Independence"=unlist(sapply(pvalues_null_indep, function(x) x$Score_V2))))+labs(colour="Variant Structure"),
-          gg_qqplot_facet_grid(list("Dependence"=unlist(sapply(pvalues_null, function(x) x$Score_V3)),
-          "Independence"=unlist(sapply(pvalues_null_indep, function(x) x$Score_V3))))+labs(colour="Variant Structure"),
-          gg_qqplot_facet_grid(list("Dependence"=unlist(sapply(pvalues_null, function(x) x$Score_V5)),
-          "Independence"=unlist(sapply(pvalues_null_indep, function(x) x$Score_V5))))+labs(colour="Variant Structure"), labels=c("A","B","C","D","E", "F"),ncol=2, nrow=3)
+                                    "Independence" = sapply(pvalues_null_indep, function(x) x$Fisher)))+labs(colour="Variant Structure"))
+dev.off()
+          #,
+          # gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$Score_V1),
+          #                                     "Independence"=sapply(pvalues_null_indep, function(x) x$Score_V1)))+labs(colour="Variant Structure"),
+          # gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$Score_V2),
+          # "Independence"=unlist(sapply(pvalues_null_indep, function(x) x$Score_V2))))+labs(colour="Variant Structure"),
+          # gg_qqplot_facet_grid(list("Dependence"=unlist(sapply(pvalues_null, function(x) x$Score_V3)),
+          # "Independence"=unlist(sapply(pvalues_null_indep, function(x) x$Score_V3))))+labs(colour="Variant Structure"),
+          # gg_qqplot_facet_grid(list("Dependence"=unlist(sapply(pvalues_null, function(x) x$Score_V5)),
+          # "Independence"=unlist(sapply(pvalues_null_indep, function(x) x$Score_V5))))+labs(colour="Variant Structure"), labels=c("A","B","C","D","E", "F"),ncol=2, nrow=3)
 
 
 gg_qqplot_facet_grid(list("Genes"=sapply(pvalues_null_Genes, function(x) x$ACAT),
