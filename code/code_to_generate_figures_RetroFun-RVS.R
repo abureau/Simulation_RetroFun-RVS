@@ -64,11 +64,12 @@ png("QQplot_main.png")
 gg_qqplot_facet_grid(list("5"=ACATp.mat[,1],"15"=ACATp.mat[,3],"25"=ACATp.mat[,5]))+labs(colour="Min families")
 dev.off()
 
-png("QQplot_all.png")
+png("QQplot_all.png", width = 480*2, height = 480)
 ggarrange(gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$ACAT), 
                                               "Independence" = sapply(pvalues_null_indep, function(x) x$ACAT)))+labs(colour="Variant Structure"),
           gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$Fisher), 
-                                    "Independence" = sapply(pvalues_null_indep, function(x) x$Fisher)))+labs(colour="Variant Structure"))
+                                    "Independence" = sapply(pvalues_null_indep, function(x) x$Fisher)))+labs(colour="Variant Structure"),
+          labels=c("A","B"),ncol=2, nrow=1)
 dev.off()
           #,
           # gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null, function(x) x$Score_V1),
@@ -86,18 +87,18 @@ gg_qqplot_facet_grid(list("Genes"=sapply(pvalues_null_Genes, function(x) x$ACAT)
                           "Pairs"=sapply(pvalues_null_Pairs, function(x) x$ACAT)))+labs(colour="Functional Annotation")
 
 #Small pedigrees
-pvalues_null_smallped_indep = readRDS("data\\pvalues_null_smallped_independence.RDS")
-pvalues_null_smallped_dep = readRDS("data\\pvalues_null_smallped_dependence.RDS")
+pvalues_null_smallped_indep = readRDS("data/pvalues_null/pvalues_null_smallped_independence.RDS")
+pvalues_null_smallped_dep = readRDS("data/pvalues_null/pvalues_null_smallped_dependence.RDS")
 
 gg_qqplot_facet_grid(list("Dependence"=sapply(pvalues_null_smallped_dep, function(x) x$ACAT), "Independence"=sapply(pvalues_null_smallped_indep, function(x) x$ACAT)))+labs(color="Variant Structure")
 
 #Different pedigree structures
-p.values.two.affected = readRDS("data\\pvalues_null_two_affected.RDS")
-p.values.three.affected= readRDS("data\\pvalues_null_three_affected.RDS")
-p.values.four.affected = readRDS("data\\pvalues_null_four_affected.RDS")
-p.values.five.affected = readRDS("data\\pvalues_null_five_affected.RDS")
-p.values.six.affected = readRDS("data\\pvalues_null_six_affected.RDS")
-p.values.seven.affected = readRDS("data\\pvalues_null_seven_affected.RDS")
+p.values.two.affected = readRDS("data/pvalues_null/pvalues_null_two_affected.RDS")
+p.values.three.affected= readRDS("data/pvalues_null/pvalues_null_three_affected.RDS")
+p.values.four.affected = readRDS("data/pvalues_null/pvalues_null_four_affected.RDS")
+p.values.five.affected = readRDS("data/pvalues_null/pvalues_null_five_affected.RDS")
+p.values.six.affected = readRDS("data/pvalues_null/pvalues_null_six_affected.RDS")
+p.values.seven.affected = readRDS("data/pvalues_null/pvalues_null_seven_affected.RDS")
 
 #Figure S6
 gg_qqplot_facet_grid(list("2 affected"=sapply(p.values.two.affected, function(x) x$ACAT),
@@ -109,17 +110,18 @@ gg_qqplot_facet_grid(list("2 affected"=sapply(p.values.two.affected, function(x)
 
 
 #Figure S7: Consanguinity 
-pvalues.null.with.only.consanguinity.uncorrected = readRDS("data\\pvalues_null_only_consanguinity_uncorrected.RDS")
-pvalues.null.with.only.consanguinity.corrected = readRDS("data\\pvalues_null_only_consanguinity_corrected.RDS")
-pvalues.null.with.consanguinity.corrected = readRDS("data\\pvalues_null_consanguinity_corrected.RDS")
-pvalues.null.with.consanguinity.unccorrected = readRDS("data\\pvalues_null_only_consanguinity_uncorrected.RDS")
+pvalues.null.with.only.consanguinity.uncorrected = readRDS("data/pvalues_null/pvalues_null_only_consanguinity_uncorrected.RDS")
+pvalues.null.with.only.consanguinity.corrected = readRDS("data/pvalues_null/pvalues_null_only_consanguinity_corrected.RDS")
+pvalues.null.with.consanguinity.corrected = readRDS("data/pvalues_null/pvalues_null_consanguinity_corrected.RDS")
+pvalues.null.with.consanguinity.unccorrected = readRDS("data/pvalues_null/pvalues_null_consanguinity_uncorrected.RDS")
 
-ggarrange(gg_qqplot_facet_grid(list("Corrected" = sapply(pvalues.null.with.consanguinity.corrected, function(x) x$ACAT),
-                          "Uncorrected"=sapply(pvalues.null.with.consanguinity.unccorrected, function(x) x$ACAT)))+labs(colour="Correction"),
+png("QQplot_consanguinity.png", width = 400*2, height = 480)
+ggarrange(gg_qqplot_facet_grid(list("Allow homozygous" = sapply(pvalues.null.with.consanguinity.corrected, function(x) x$ACAT),
+                          "No homozygous"=sapply(pvalues.null.with.consanguinity.unccorrected, function(x) x$ACAT)))+labs(colour="Genotypes"),
 
-gg_qqplot_facet_grid(list("Corrected" = sapply(pvalues.null.with.only.consanguinity.corrected, function(x) x$ACAT),
-                          "Uncorrected"=sapply(pvalues.null.with.only.consanguinity.uncorrected, function(x) x$ACAT)))+labs(colour="Correction"), labels = c("A","B"), ncol=2)
-
+gg_qqplot_facet_grid(list("Allow homozygous" = sapply(pvalues.null.with.only.consanguinity.corrected, function(x) x$ACAT),
+                          "No homozygous"=sapply(pvalues.null.with.only.consanguinity.uncorrected, function(x) x$ACAT)))+labs(colour="Genotypes"), labels = c("A","B"), ncol=2)
+dev.off()
 
 #Figure 4: Power at 2% causal variants
 pvalues.alter.2causal.CRHs = readRDS("data\\pvalues_alter_2causal_CRHs.RDS")
