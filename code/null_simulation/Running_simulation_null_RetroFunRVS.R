@@ -1,4 +1,3 @@
-#nohup R CMD BATCH Running_simulation_null_RetroFunRVS.R &
 library(kinship2)
 library(dplyr)
 library(RVsharing)
@@ -7,17 +6,13 @@ library(foreach)
 library(doParallel)
 
 # Fichiers de code à charger
-# Modifier le chemin
-#setwd("/mnt-biostats/jricard/simulation_nulle")
 source("DropHaploLocus.R")
 source("drophaplolocusfn.R")
 source("ped2haplo.R")
-source("simulation_null_RetroFunRVS.R")
+source("simulation_null_RetroFunRVS_allCRHs.R")
 load("pedsimple.RData")
 
-set.seed(10)
-# Nombre minimal de familles par annotation
-ped.varcut = 5
+set.seed(100)
 
 pedData=read.table("pedigree_for_sim_clean_trim_2.ped")
 sum(pedData[,6]==2)
@@ -68,7 +63,7 @@ trioforsim[f] = tmp1$object
 Z = read.table("data/Annot_Z_CRHs.mat", header=F)
 #On doit retirer rs199753143, le 320e variant dans le vcf initial.
 Z <- Z[-320,] 
-null_without_consanguinity = read.table("null_without_consanguinity.txt", header=TRUE)
+null_without_consanguinity = read.table("data/null_without_consanguinity.txt", header=TRUE)
 
 # Cette étape ne devrait pas être requise
 null_without_consanguinity_sim = rbind(null_without_consanguinity,cbind(FamID=paste0("A",c(105,115,125,182,211,220)),null_without_consanguinity[null_without_consanguinity$FamID%in%c(105,115,125,182,211,220),-1]),cbind(FamID=paste0("B",c(105,115,125,182,211,220)),null_without_consanguinity[null_without_consanguinity$FamID%in%c(105,115,125,182,211,220),-1]))
@@ -79,11 +74,10 @@ keep <- c("101", "105", "108", "110", "111", "115", "119", "121", "122", "123", 
 null_without_consanguinity_sim <- null_without_consanguinity_sim[null_without_consanguinity_sim$FamID %in% keep,]
 
 #Rouler
-ncores=35
-nrep=80000
+ncores=32
 doParallel::registerDoParallel(cores=ncores)
 foreach(i = 1:ncores) %dopar% {
-  pvalues_null = simulation_null_RetroFunRVS(ped.frame, trioforsim, TG.haplo, fams.simple, ped.varcut, Z, null_without_consanguinity_sim, nrep = nrep)
+  pvalues_null = simulation_null_RetroFunRVS_all(ped.frame, trioforsim, TG.haplo, fams.simple, Z, null_without_consanguinity_sim, nrep = 156250)
   saveRDS(pvalues_null, paste0("sim_object_arcturus_", i, ".rds"))
 }
 
